@@ -2827,6 +2827,10 @@ do
 		RecalculateListSize();
 
 		DropdownOuter:GetPropertyChangedSignal('AbsolutePosition'):Connect(RecalculateListPosition);
+		DropdownOuter:GetPropertyChangedSignal('AbsoluteSize'):Connect(function()
+			RecalculateListPosition();
+			RecalculateListSize(ListOuter.Size.Y.Offset);
+		end);
 
 		local ListInner = Library:Create('Frame', {
 			BackgroundColor3 = Library.MainColor;
@@ -3087,10 +3091,15 @@ do
 		end;
 
 		DropdownOuter.InputBegan:Connect(function(Input)
-			if Input.UserInputType == Enum.UserInputType.MouseButton1 and not Library:MouseIsOverOpenedFrame() then
+			if Input.UserInputType == Enum.UserInputType.MouseButton1 then
 				if ListOuter.Visible then
 					Dropdown:CloseDropdown();
 				else
+					-- close any other open dropdowns first
+					for Frame, _ in next, Library.OpenedFrames do
+						Frame.Visible = false;
+						Library.OpenedFrames[Frame] = nil;
+					end;
 					Dropdown:OpenDropdown();
 				end;
 			end;
