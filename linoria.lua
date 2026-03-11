@@ -2551,7 +2551,9 @@ do
 			end
 
 			local X = math.ceil(Library:MapValue(Slider.Value, Slider.Min, Slider.Max, 0, Slider.MaxSize));
-			Fill.Size = UDim2.new(0, X, 1, 0);
+			TweenService:Create(Fill, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				Size = UDim2.new(0, X, 1, 0)
+			}):Play();
 
 			HideBorderRight.Visible = not (X == Slider.MaxSize or X == 0);
 		end;
@@ -3455,6 +3457,23 @@ function Library:SetKeybindMenuMode(Mode)
 	end;
 end;
 
+function Library:SetFont(NewFont)
+	Library.Font = NewFont;
+	for _, Instance in next, Library.RegistryMap do
+		if Instance.Instance and Instance.Instance:IsA('TextLabel') or
+		   (Instance.Instance and Instance.Instance:IsA('TextButton')) or
+		   (Instance.Instance and Instance.Instance:IsA('TextBox')) then
+			pcall(function() Instance.Instance.Font = NewFont end);
+		end;
+	end;
+	-- also walk all descendants of ScreenGui to catch anything not in registry
+	for _, obj in next, Library.ScreenGui:GetDescendants() do
+		if obj:IsA('TextLabel') or obj:IsA('TextButton') or obj:IsA('TextBox') then
+			pcall(function() obj.Font = NewFont end);
+		end;
+	end;
+end;
+
 function Library:SetWatermark(Text)
 	local X, Y = Library:GetTextBounds(Text, Library.Font, 14);
 	Library.Watermark.Size = UDim2.new(0, X + 15, 0, (Y * 1.5) + 3);
@@ -3991,7 +4010,76 @@ function Library:CreateWindow(...)
 		WindowLabel.Text = Title;
 	end;
 
-	function Window:AddTab(Name)
+	-- DisappearingText: each letter fades out then back in, looping
+	if Config.DisappearingText then
+		WindowLabel.Text = '';
+		local title = Config.Title or '';
+		local letters = {};
+		local spacing = 6;
+
+		-- create one label per character
+		local totalW = #title * spacing;
+		for i = 1, #title do
+			local ch = title:sub(i, i);
+			local lbl = Library:CreateLabel({
+				Size = UDim2.fromOffset(spacing, 20);
+				Position = UDim2.fromOffset(
+					(WindowLabel.AbsoluteSize.X / 2) - (totalW / 2) + (i - 1) * spacing,
+					0
+				);
+				Text = ch;
+				TextXAlignment = Enum.TextXAlignment.Center;
+				ZIndex = 2;
+				Parent = Inner;
+			});
+			table.insert(letters, lbl);
+		end;
+
+		-- reposition when window size changes
+		WindowLabel:GetPropertyChangedSignal('AbsoluteSize'):Connect(function()
+			for i, lbl in ipairs(letters) do
+				lbl.Position = UDim2.fromOffset(
+					(WindowLabel.AbsoluteSize.X / 2) - (totalW / 2) + (i - 1) * spacing,
+					0
+				);
+			end;
+		end);
+
+		task.spawn(function()
+			local delay = 0.12;
+			while true do
+				for i, lbl in ipairs(letters) do
+					task.spawn(function()
+						task.wait((i - 1) * delay);
+						TweenService:Create(lbl, TweenInfo.new(0.3), { TextTransparency = 1 }):Play();
+						task.wait(0.3);
+						TweenService:Create(lbl, TweenInfo.new(0.3), { TextTransparency = 0 }):Play();
+					end);
+				end;
+				task.wait(#title * delay + 0.6 + 1.2);
+			end;
+		end);
+	end;
+
+	-- font dropdown in UI Settings if a font tab is provided
+	Window.SetFont = function(_, fontName)
+		local fontMap = {
+			['code']          = Enum.Font.Code;
+			['gotham']        = Enum.Font.Gotham;
+			['gotham bold']   = Enum.Font.GothamBold;
+			['roboto']        = Enum.Font.Roboto;
+			['roboto mono']   = Enum.Font.RobotoMono;
+			['source sans']   = Enum.Font.SourceSans;
+			['ubuntu']        = Enum.Font.Ubuntu;
+			['arial']         = Enum.Font.Arial;
+		};
+		local f = fontMap[fontName:lower()];
+		if f then Library:SetFont(f) end;
+	end;
+
+	Library.FontNames = { 'code', 'gotham', 'gotham bold', 'roboto', 'roboto mono', 'source sans', 'ubuntu', 'arial' };
+
+
 		local Tab = {
 			Groupboxes = {};
 			Tabboxes = {};
