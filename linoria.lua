@@ -4010,74 +4010,10 @@ function Library:CreateWindow(...)
 		WindowLabel.Text = Title;
 	end;
 
-	-- DisappearingText: each letter fades out then back in, looping
-	if Config.DisappearingText then
-		WindowLabel.Text = '';
-		local title = Config.Title or '';
-		local letters = {};
-		local spacing = 6;
-
-		-- create one label per character
-		local totalW = #title * spacing;
-		for i = 1, #title do
-			local ch = title:sub(i, i);
-			local lbl = Library:CreateLabel({
-				Size = UDim2.fromOffset(spacing, 20);
-				Position = UDim2.fromOffset(
-					(WindowLabel.AbsoluteSize.X / 2) - (totalW / 2) + (i - 1) * spacing,
-					0
-				);
-				Text = ch;
-				TextXAlignment = Enum.TextXAlignment.Center;
-				ZIndex = 2;
-				Parent = Inner;
-			});
-			table.insert(letters, lbl);
-		end;
-
-		-- reposition when window size changes
-		WindowLabel:GetPropertyChangedSignal('AbsoluteSize'):Connect(function()
-			for i, lbl in ipairs(letters) do
-				lbl.Position = UDim2.fromOffset(
-					(WindowLabel.AbsoluteSize.X / 2) - (totalW / 2) + (i - 1) * spacing,
-					0
-				);
-			end;
-		end);
-
-		task.spawn(function()
-			local delay = 0.12;
-			while true do
-				for i, lbl in ipairs(letters) do
-					task.spawn(function()
-						task.wait((i - 1) * delay);
-						TweenService:Create(lbl, TweenInfo.new(0.3), { TextTransparency = 1 }):Play();
-						task.wait(0.3);
-						TweenService:Create(lbl, TweenInfo.new(0.3), { TextTransparency = 0 }):Play();
-					end);
-				end;
-				task.wait(#title * delay + 0.6 + 1.2);
-			end;
-		end);
-	end;
-
-	-- font dropdown in UI Settings if a font tab is provided
-	Window.SetFont = function(_, fontName)
-		local fontMap = {
-			['code']          = Enum.Font.Code;
-			['gotham']        = Enum.Font.Gotham;
-			['gotham bold']   = Enum.Font.GothamBold;
-			['roboto']        = Enum.Font.Roboto;
-			['roboto mono']   = Enum.Font.RobotoMono;
-			['source sans']   = Enum.Font.SourceSans;
-			['ubuntu']        = Enum.Font.Ubuntu;
-			['arial']         = Enum.Font.Arial;
-		};
-		local f = fontMap[fontName:lower()];
-		if f then Library:SetFont(f) end;
-	end;
 
 	Library.FontNames = { 'code', 'gotham', 'gotham bold', 'roboto', 'roboto mono', 'source sans', 'ubuntu', 'arial' };
+
+	function Window:AddTab(Name)
 
 
 		local Tab = {
