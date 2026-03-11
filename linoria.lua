@@ -212,54 +212,66 @@ end;
 
 function Library:MakeResizable(Outer, OnResize)
 	local MinW, MinH = 400, 300;
-	local HandleSize = 16;
+	local HitZone = 18; -- px from bottom-right corner that counts as the resize zone
 
+	local resizing = false;
+	local startMouse, startSize;
+
+	-- detect if mouse is in the bottom-right corner of Outer
+	local function inResizeZone()
+		local ap = Outer.AbsolutePosition;
+		local as = Outer.AbsoluteSize;
+		local mx, my = Mouse.X, Mouse.Y;
+		return mx >= (ap.X + as.X - HitZone) and my >= (ap.Y + as.Y - HitZone)
+			and mx <= (ap.X + as.X) and my <= (ap.Y + as.Y);
+	end;
+
+	-- visual handle pinned to bottom-right of Outer, parented to ScreenGui so it's always on top
 	local Handle = Library:Create('Frame', {
 		BackgroundColor3 = Library.AccentColor;
 		BorderSizePixel = 0;
-		AnchorPoint = Vector2.new(1, 1);
-		Position = UDim2.new(1, 0, 1, 0);
-		Size = UDim2.new(0, HandleSize, 0, HandleSize);
-		ZIndex = 200;
-		Parent = Outer;
+		Size = UDim2.fromOffset(HitZone, HitZone);
+		ZIndex = 300;
+		Parent = ScreenGui;
 	});
 
 	Library:AddToRegistry(Handle, {
 		BackgroundColor3 = 'AccentColor';
 	});
 
-	-- draw a small triangle indicator
-	Library:Create('UIGradient', {
-		Rotation = 45;
-		Transparency = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 0);
-			NumberSequenceKeypoint.new(0.5, 0);
-			NumberSequenceKeypoint.new(0.5, 1);
-			NumberSequenceKeypoint.new(1, 1);
-		});
-		Parent = Handle;
-	});
+	-- keep handle position synced to bottom-right of Outer
+	local function updateHandlePos()
+		local ap = Outer.AbsolutePosition;
+		local as = Outer.AbsoluteSize;
+		Handle.Position = UDim2.fromOffset(ap.X + as.X - HitZone, ap.Y + as.Y - HitZone);
+	end;
+	updateHandlePos();
 
-	Handle.InputBegan:Connect(function(Input)
-		if Input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+	Outer:GetPropertyChangedSignal('AbsolutePosition'):Connect(updateHandlePos);
+	Outer:GetPropertyChangedSignal('AbsoluteSize'):Connect(updateHandlePos);
 
-		local startMouse = Vector2.new(Mouse.X, Mouse.Y);
-		local startSize  = Vector2.new(Outer.AbsoluteSize.X, Outer.AbsoluteSize.Y);
+	InputService.InputBegan:Connect(function(Input)
+		if Input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end;
+		if not (Outer.Visible and inResizeZone()) then return end;
+		resizing = true;
+		startMouse = Vector2.new(Mouse.X, Mouse.Y);
+		startSize  = Vector2.new(Outer.AbsoluteSize.X, Outer.AbsoluteSize.Y);
+	end);
 
-		while InputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) do
-			local delta = Vector2.new(Mouse.X - startMouse.X, Mouse.Y - startMouse.Y);
-			local newW  = math.max(MinW, startSize.X + delta.X);
-			local newH  = math.max(MinH, startSize.Y + delta.Y);
-
-			Outer.Size = UDim2.fromOffset(newW, newH);
-			Library.UISize = Outer.Size;
-
-			if OnResize then
-				OnResize(newW, newH);
-			end;
-
-			RenderStepped:Wait();
+	InputService.InputEnded:Connect(function(Input)
+		if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+			resizing = false;
 		end;
+	end);
+
+	RenderStepped:Connect(function()
+		if not resizing then return end;
+		local delta = Vector2.new(Mouse.X - startMouse.X, Mouse.Y - startMouse.Y);
+		local newW  = math.max(MinW, startSize.X + delta.X);
+		local newH  = math.max(MinH, startSize.Y + delta.Y);
+		Outer.Size = UDim2.fromOffset(newW, newH);
+		Library.UISize = Outer.Size;
+		if OnResize then OnResize(newW, newH) end;
 	end);
 end;
 
