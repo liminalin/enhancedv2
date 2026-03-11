@@ -210,6 +210,59 @@ function Library:MakeDraggable(Instance, Cutoff)
 	end)
 end;
 
+function Library:MakeResizable(Outer, OnResize)
+	local MinW, MinH = 400, 300;
+	local HandleSize = 16;
+
+	local Handle = Library:Create('Frame', {
+		BackgroundColor3 = Library.AccentColor;
+		BorderSizePixel = 0;
+		AnchorPoint = Vector2.new(1, 1);
+		Position = UDim2.new(1, 0, 1, 0);
+		Size = UDim2.new(0, HandleSize, 0, HandleSize);
+		ZIndex = 200;
+		Parent = Outer;
+	});
+
+	Library:AddToRegistry(Handle, {
+		BackgroundColor3 = 'AccentColor';
+	});
+
+	-- draw a small triangle indicator
+	Library:Create('UIGradient', {
+		Rotation = 45;
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0);
+			NumberSequenceKeypoint.new(0.5, 0);
+			NumberSequenceKeypoint.new(0.5, 1);
+			NumberSequenceKeypoint.new(1, 1);
+		});
+		Parent = Handle;
+	});
+
+	Handle.InputBegan:Connect(function(Input)
+		if Input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+
+		local startMouse = Vector2.new(Mouse.X, Mouse.Y);
+		local startSize  = Vector2.new(Outer.AbsoluteSize.X, Outer.AbsoluteSize.Y);
+
+		while InputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) do
+			local delta = Vector2.new(Mouse.X - startMouse.X, Mouse.Y - startMouse.Y);
+			local newW  = math.max(MinW, startSize.X + delta.X);
+			local newH  = math.max(MinH, startSize.Y + delta.Y);
+
+			Outer.Size = UDim2.fromOffset(newW, newH);
+			Library.UISize = Outer.Size;
+
+			if OnResize then
+				OnResize(newW, newH);
+			end;
+
+			RenderStepped:Wait();
+		end;
+	end);
+end;
+
 local DraggingGui = Instance.new("ScreenGui", gethui());
 function Library:MakeDraggableOutline(Instance, Cutoff)
 	Instance.Active = true;
@@ -3782,6 +3835,18 @@ function Library:CreateWindow(...)
 
 	Library:MakeDraggableOutline(Outer, 25);
 
+	local ScrollFrames = {};
+
+	Library:MakeResizable(Outer, function(newW, newH)
+		local contentH = newH - 57;
+		for _, sf in ipairs(ScrollFrames) do
+			if sf and sf.Parent then
+				sf.Size = UDim2.new(sf.Size.X.Scale, sf.Size.X.Offset, 0, contentH);
+			end;
+		end;
+	end);
+
+
 	local Inner = Library:Create('Frame', {
 		BackgroundColor3 = Library.MainColor;
 		BorderColor3 = Library.AccentColor;
@@ -3987,6 +4052,9 @@ function Library:CreateWindow(...)
 			HorizontalAlignment = Enum.HorizontalAlignment.Center;
 			Parent = LeftSide;
 		});
+
+		table.insert(ScrollFrames, LeftSide);
+		table.insert(ScrollFrames, RightSide);
 
 		Library:Create('UIListLayout', {
 			Padding = UDim.new(0, 8);
