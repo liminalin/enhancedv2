@@ -3357,7 +3357,6 @@ do
 
 
 	local KeybindOuter = Library:Create('Frame', {
-		AnchorPoint = Vector2.new(0, 0.5);
 		BorderColor3 = Color3.new(0, 0, 0);
 		Position = UDim2.fromOffset(0, 0);
 		Size = UDim2.new(0, 210, 0, 20);
@@ -3429,33 +3428,22 @@ do
 	Library.KeybindContainer = KeybindContainer;
 	Library:MakeDraggable(KeybindOuter);
 
-	-- sync keybind frame to right edge of main window
-	local function syncKeybindPos()
+	-- sync keybind frame to right of main window every frame
+	RenderStepped:Connect(function()
 		local mf = Library.MainFrame;
-		if not mf then return end;
+		if not (mf and KeybindOuter.Visible) then return end;
 		local ap = mf.AbsolutePosition;
 		local as = mf.AbsoluteSize;
-		KeybindOuter.Position = UDim2.fromOffset(ap.X + as.X + 6, ap.Y + as.Y * 0.5);
-	end;
-
-	-- run once after a frame so MainFrame is set
-	task.defer(function()
-		syncKeybindPos();
-		local mf = Library.MainFrame;
-		if mf then
-			mf:GetPropertyChangedSignal('AbsolutePosition'):Connect(syncKeybindPos);
-			mf:GetPropertyChangedSignal('AbsoluteSize'):Connect(syncKeybindPos);
-			-- close all dropdowns when GUI hides
-			mf:GetPropertyChangedSignal('Visible'):Connect(function()
-				if not mf.Visible then
-					for Frame, _ in next, Library.OpenedFrames do
-						Frame.Visible = false;
-						Library.OpenedFrames[Frame] = nil;
-					end;
-				end;
-			end);
-		end;
+		KeybindOuter.Position = UDim2.fromOffset(ap.X + as.X + 6, ap.Y + 6);
 	end);
+
+	-- expose helper to close all open dropdowns
+	Library.CloseAllDropdowns = function()
+		for Frame in next, Library.OpenedFrames do
+			pcall(function() Frame.Visible = false end);
+			Library.OpenedFrames[Frame] = nil;
+		end;
+	end;
 end;
 
 function Library:SetWatermarkVisibility(Bool)
@@ -4619,6 +4607,10 @@ function Library:CreateWindow(...)
 		end;
 
 		Outer.Visible = Toggled;
+
+		if not Toggled and Library.CloseAllDropdowns then
+			Library.CloseAllDropdowns();
+		end;
 
 		Outer.Parent = Toggled and ScreenGui or nil;
 
