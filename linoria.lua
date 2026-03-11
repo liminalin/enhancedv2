@@ -249,6 +249,9 @@ function Library:MakeResizable(Outer, OnResize)
 
 	Outer:GetPropertyChangedSignal('AbsolutePosition'):Connect(updateHandlePos);
 	Outer:GetPropertyChangedSignal('AbsoluteSize'):Connect(updateHandlePos);
+	Outer:GetPropertyChangedSignal('Visible'):Connect(function()
+		Handle.Visible = Outer.Visible;
+	end);
 
 	InputService.InputBegan:Connect(function(Input)
 		if Input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end;
