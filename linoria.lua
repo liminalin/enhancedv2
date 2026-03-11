@@ -3357,8 +3357,9 @@ do
 
 
 	local KeybindOuter = Library:Create('Frame', {
+		AnchorPoint = Vector2.new(0, 0.5);
 		BorderColor3 = Color3.new(0, 0, 0);
-		Position = UDim2.fromOffset(0, 0);
+		Position = UDim2.new(0, 10, 0.5, 0);
 		Size = UDim2.new(0, 210, 0, 20);
 		Visible = false;
 		ZIndex = 100;
@@ -3427,23 +3428,6 @@ do
 	Library.KeybindFrame = KeybindOuter;
 	Library.KeybindContainer = KeybindContainer;
 	Library:MakeDraggable(KeybindOuter);
-
-	-- sync keybind frame to right of main window every frame
-	RenderStepped:Connect(function()
-		local mf = Library.MainFrame;
-		if not (mf and KeybindOuter.Visible) then return end;
-		local ap = mf.AbsolutePosition;
-		local as = mf.AbsoluteSize;
-		KeybindOuter.Position = UDim2.fromOffset(ap.X + as.X + 6, ap.Y + 6);
-	end);
-
-	-- expose helper to close all open dropdowns
-	Library.CloseAllDropdowns = function()
-		for Frame in next, Library.OpenedFrames do
-			pcall(function() Frame.Visible = false end);
-			Library.OpenedFrames[Frame] = nil;
-		end;
-	end;
 end;
 
 function Library:SetWatermarkVisibility(Bool)
@@ -4608,10 +4592,6 @@ function Library:CreateWindow(...)
 
 		Outer.Visible = Toggled;
 
-		if not Toggled and Library.CloseAllDropdowns then
-			Library.CloseAllDropdowns();
-		end;
-
 		Outer.Parent = Toggled and ScreenGui or nil;
 
 		Fading = false;
@@ -4630,7 +4610,6 @@ function Library:CreateWindow(...)
 	if Config.AutoShow then task.spawn(Library.Toggle) end
 
 	Window.Holder = Outer;
-	Library.MainFrame = Outer;
 
 	return Window;
 end;
