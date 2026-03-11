@@ -34,7 +34,7 @@ local Library = {
 	FontColor = Color3.fromRGB(255, 255, 255);
 	MainColor = Color3.fromRGB(28, 28, 28);
 	BackgroundColor = Color3.fromRGB(20, 20, 20);
-	AccentColor = Color3.fromRGB(0, 85, 255);
+	AccentColor = Color3.fromRGB(0, 210, 220);
 	OutlineColor = Color3.fromRGB(50, 50, 50);
 	RiskColor = Color3.fromRGB(255, 50, 50),
 
@@ -3940,7 +3940,7 @@ function Library:CreateWindow(...)
 	});
 
 	-- vertical left sidebar for tabs
-	local SidebarWidth = 80;
+	local SidebarWidth = 100;
 
 	local TabArea = Library:Create('Frame', {
 		BackgroundColor3 = Library.BackgroundColor;
@@ -3988,10 +3988,13 @@ function Library:CreateWindow(...)
 			Tabboxes = {};
 		};
 
+		local textW = Library:GetTextBounds(Name, Library.Font, 13);
+		local btnH = textW > (SidebarWidth - 12) and 36 or 24;
+
 		local TabButton = Library:Create('Frame', {
 			BackgroundColor3 = Library.BackgroundColor;
 			BorderColor3 = Library.OutlineColor;
-			Size = UDim2.new(1, 0, 0, 24);
+			Size = UDim2.new(1, 0, 0, btnH);
 			ZIndex = 1;
 			Parent = TabArea;
 		});
@@ -4003,9 +4006,11 @@ function Library:CreateWindow(...)
 
 		local TabButtonLabel = Library:CreateLabel({
 			Position = UDim2.new(0, 6, 0, 0);
-			Size = UDim2.new(1, -6, 1, 0);
+			Size = UDim2.new(1, -10, 1, 0);
 			Text = Name;
 			TextXAlignment = Enum.TextXAlignment.Left;
+			TextWrapped = true;
+			TextSize = 13;
 			ZIndex = 1;
 			Parent = TabButton;
 		});
