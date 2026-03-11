@@ -2656,27 +2656,38 @@ do
 			return slider;
 		end;
 
-		local wanted_size = (Groupbox.Container.AbsoluteSize.X) / size;
-		wanted_size += size - 2;
+		local function ApplySliderSizes()
+			local wanted_size = (Groupbox.Container.AbsoluteSize.X) / size;
+			wanted_size += size - 2;
 
-		local n_size = math.round(wanted_size);
+			local n_size = math.round(wanted_size);
 
-		for i = size, 1, -1 do
-			local slider = get_slider(i);
-			slider.Outer.Size = UDim2.new(0, n_size - 3, 0, 13)
-			slider.Outer.Position = UDim2.new(1, 2, 0, 0);
-			slider.MaxSize = slider.Outer.AbsoluteSize.X - 2;
+			for i = size, 1, -1 do
+				local slider = get_slider(i);
+				slider.Outer.Size = UDim2.new(0, n_size - 3, 0, 13)
+				slider.Outer.Position = UDim2.new(1, 2, 0, 0);
+				slider.MaxSize = slider.Outer.AbsoluteSize.X - 2;
 
-			slider:Display();
+				slider:Display();
+			end;
+
+			if (n_size ~= wanted_size) then -- jank fix..
+				local slider = get_slider(1);
+				slider.Outer.Size = UDim2.new(0, n_size - (size + 1), 0, 13)
+				slider.Outer.Position = UDim2.new(1, 2, 0, 0);
+				slider.MaxSize = slider.Outer.AbsoluteSize.X - 2;
+
+				slider:Display();
+			end;
 		end;
 
-		if (n_size ~= wanted_size) then -- jank fix..
-			local slider = get_slider(1);
-			slider.Outer.Size = UDim2.new(0, n_size - (size + 1), 0, 13)
-			slider.Outer.Position = UDim2.new(1, 2, 0, 0);
-			slider.MaxSize = slider.Outer.AbsoluteSize.X - 2;
+		ApplySliderSizes();
 
-			slider:Display();
+		-- Re-layout sliders whenever the groupbox container is resized (e.g. GUI drag-resize)
+		if (not SliderParent) then
+			Groupbox.Container:GetPropertyChangedSignal('AbsoluteSize'):Connect(function()
+				task.defer(ApplySliderSizes);
+			end);
 		end;
 
 		if (not SliderParent) then
