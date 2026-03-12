@@ -63,7 +63,7 @@ local Library = {
 
 
 
-	FadeColor = Color3.new(0, 0, 0);
+	FadeColor = Color3.fromRGB(54, 93, 171);
 
 	Signals = {};
 	ScreenGui = ScreenGui;
@@ -4052,12 +4052,15 @@ function Library:CreateWindow(...)
 				or  math.floor((frameW - totalW) / 2);
 			local curX = startX;
 			for i = 1, #text do
-				local lbl = Library:CreateLabel({
+				local lbl = Library:Create('TextLabel', {
+					BackgroundTransparency = 1;
 					Position       = UDim2.fromOffset(curX, 4);
 					Size           = UDim2.fromOffset(widths[i] + 1, 18);
 					Text           = text:sub(i,i);
-					TextXAlignment = Enum.TextXAlignment.Left;
+					TextColor3     = Library.FontColor;
+					Font           = Library.Font;
 					TextSize       = 14;
+					TextXAlignment = Enum.TextXAlignment.Left;
 					ZIndex         = 2;
 					Parent         = parentFrame;
 				});
