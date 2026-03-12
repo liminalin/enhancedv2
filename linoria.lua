@@ -4027,6 +4027,82 @@ function Library:CreateWindow(...)
 		WindowLabel.Text = Title;
 	end;
 
+	if Config.FadingText and Config.Title and #Config.Title > 0 then
+		WindowLabel.Text = '';
+		local title = Config.Title;
+		local letters = {};
+		local letterWidths = {};
+
+		-- measure total width so we can center the whole thing
+		local function buildLetters()
+			for _, lbl in ipairs(letters) do lbl:Destroy() end;
+			letters = {};
+			letterWidths = {};
+
+			local totalW = 0;
+			for i = 1, #title do
+				local ch = title:sub(i, i);
+				local w = Library:GetTextBounds(ch, Library.Font, 14);
+				table.insert(letterWidths, w);
+				totalW = totalW + w;
+			end;
+
+			local startX = math.floor((WindowLabel.AbsoluteSize.X - totalW) / 2);
+			local curX = startX;
+
+			for i = 1, #title do
+				local ch = title:sub(i, i);
+				local lbl = Library:CreateLabel({
+					Position = UDim2.fromOffset(curX, 4);
+					Size = UDim2.fromOffset(letterWidths[i] + 1, 18);
+					Text = ch;
+					TextXAlignment = Enum.TextXAlignment.Left;
+					TextSize = 14;
+					ZIndex = 2;
+					Parent = Inner;
+				});
+				table.insert(letters, lbl);
+				curX = curX + letterWidths[i];
+			end;
+		end;
+
+		-- rebuild positions when window resizes
+		WindowLabel:GetPropertyChangedSignal('AbsoluteSize'):Connect(function()
+			task.defer(buildLetters);
+		end);
+
+		-- wait one frame so AbsoluteSize is ready
+		task.defer(buildLetters);
+
+		task.spawn(function()
+			-- wait for letters to exist
+			while #letters == 0 do task.wait() end;
+
+			local letterDelay = 0.08;
+			local fadeTime    = 0.25;
+			local pauseTime   = 1.5;
+
+			while Inner.Parent do
+				-- fade out left to right
+				for i = 1, #letters do
+					if not Inner.Parent then break end;
+					TweenService:Create(letters[i], TweenInfo.new(fadeTime), { TextTransparency = 1 }):Play();
+					task.wait(letterDelay);
+				end;
+
+				task.wait(fadeTime);
+
+				-- fade back in left to right
+				for i = 1, #letters do
+					if not Inner.Parent then break end;
+					TweenService:Create(letters[i], TweenInfo.new(fadeTime), { TextTransparency = 0 }):Play();
+					task.wait(letterDelay);
+				end;
+
+				task.wait(fadeTime + pauseTime);
+			end;
+		end);
+	end;
 
 	Library.FontNames = { 'code', 'gotham', 'gotham bold', 'roboto', 'roboto mono', 'source sans', 'ubuntu', 'arial' };
 
