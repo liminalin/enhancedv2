@@ -2412,11 +2412,11 @@ do
 	end;
 
 	function Funcs:AddSlider(Idx, Info, SliderParent)
-		assert(Info.Default, 'AddSlider: Missing default value.');
+		assert(Info.Default ~= nil, 'AddSlider: Missing default value.');
 		assert(Info.Text, 'AddSlider: Missing slider text.');
-		assert(Info.Min, 'AddSlider: Missing minimum value.');
-		assert(Info.Max, 'AddSlider: Missing maximum value.');
-		assert(Info.Rounding, 'AddSlider: Missing rounding value.');
+		assert(Info.Min ~= nil, 'AddSlider: Missing minimum value.');
+		assert(Info.Max ~= nil, 'AddSlider: Missing maximum value.');
+		assert(Info.Rounding ~= nil, 'AddSlider: Missing rounding value.');
 
 		local Blanks = { };
 		local Slider = {
@@ -2541,13 +2541,15 @@ do
 
 		function Slider:Display()
 			local Suffix = Info.Suffix or '';
+			local val = tostring(Slider.Value or 0);
+			local maxv = tostring(Slider.Max or 0);
 
 			if Info.Compact then
-				DisplayLabel.Text = Info.Text .. ': ' .. Slider.Value .. Suffix
+				DisplayLabel.Text = (Info.Text or '') .. ': ' .. val .. Suffix
 			elseif Info.HideMax then
-				DisplayLabel.Text = string.format('%s', Slider.Value .. Suffix)
+				DisplayLabel.Text = string.format('%s', val .. Suffix)
 			else
-				DisplayLabel.Text = string.format('%s/%s', Slider.Value .. Suffix, Slider.Max .. Suffix);
+				DisplayLabel.Text = string.format('%s/%s', val .. Suffix, maxv .. Suffix);
 			end
 
 			local X = math.ceil(Library:MapValue(Slider.Value, Slider.Min, Slider.Max, 0, Slider.MaxSize));
