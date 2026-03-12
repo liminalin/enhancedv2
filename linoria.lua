@@ -17,7 +17,7 @@ ProtectGui(ScreenGui);
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global;
 ScreenGui.Parent = CoreGui;
 ScreenGui.DisplayOrder = 20;
-ScreenGui.IgnoreGuiInset = True;
+ScreenGui.IgnoreGuiInset = true;
 
 local Toggles = {};
 local Options = {};
@@ -187,9 +187,10 @@ function Library:MakeDraggable(Instance, Cutoff)
 
 	Instance.InputBegan:Connect(function(Input)
 		if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+			local _ap = AbsToGui(Instance.AbsolutePosition);
 			local ObjPos = Vector2.new(
-				Mouse.X - Instance.AbsolutePosition.X,
-				Mouse.Y - Instance.AbsolutePosition.Y
+				Mouse.X - _ap.X,
+				Mouse.Y - _ap.Y
 			);
 
 			if ObjPos.Y > (Cutoff or 40) then
@@ -219,7 +220,7 @@ function Library:MakeResizable(Outer, OnResize)
 
 	-- detect if mouse is in the bottom-right corner of Outer
 	local function inResizeZone()
-		local ap = Outer.AbsolutePosition;
+		local ap = AbsToGui(Outer.AbsolutePosition);
 		local as = Outer.AbsoluteSize;
 		local mx, my = Mouse.X, Mouse.Y;
 		return mx >= (ap.X + as.X - HitZone) and my >= (ap.Y + as.Y - HitZone)
@@ -241,7 +242,7 @@ function Library:MakeResizable(Outer, OnResize)
 
 	-- keep handle position synced to bottom-right of Outer
 	local function updateHandlePos()
-		local ap = Outer.AbsolutePosition;
+		local ap = AbsToGui(Outer.AbsolutePosition);
 		local as = Outer.AbsoluteSize;
 		Handle.Position = UDim2.fromOffset(ap.X + as.X - HitZone, ap.Y + as.Y - HitZone);
 	end;
@@ -411,7 +412,8 @@ end;
 
 function Library:MouseIsOverOpenedFrame()
 	for Frame, _ in next, Library.OpenedFrames do
-		local AbsPos, AbsSize = Frame.AbsolutePosition, Frame.AbsoluteSize;
+		local AbsPos = AbsToGui(Frame.AbsolutePosition);
+		local AbsSize = Frame.AbsoluteSize;
 
 		if Mouse.X >= AbsPos.X and Mouse.X <= AbsPos.X + AbsSize.X
 			and Mouse.Y >= AbsPos.Y and Mouse.Y <= AbsPos.Y + AbsSize.Y then
@@ -422,7 +424,8 @@ function Library:MouseIsOverOpenedFrame()
 end;
 
 function Library:IsMouseOverFrame(Frame)
-	local AbsPos, AbsSize = Frame.AbsolutePosition, Frame.AbsoluteSize;
+	local AbsPos = AbsToGui(Frame.AbsolutePosition);
+	local AbsSize = Frame.AbsoluteSize;
 
 	if Mouse.X >= AbsPos.X and Mouse.X <= AbsPos.X + AbsSize.X
 		and Mouse.Y >= AbsPos.Y and Mouse.Y <= AbsPos.Y + AbsSize.Y then
@@ -587,9 +590,10 @@ function Library:AddContextMenu(DisplayFrame, hitbox)
 	});
 
 	local function updateMenuPosition()
+		local _p = AbsToGui(DisplayFrame.AbsolutePosition);
 		ContextMenu.Container.Position = UDim2.fromOffset(
-			(DisplayFrame.AbsolutePosition.X + DisplayFrame.AbsoluteSize.X) + 4,
-			DisplayFrame.AbsolutePosition.Y + 1
+			_p.X + DisplayFrame.AbsoluteSize.X + 4,
+			_p.Y + 1
 		)
 	end
 
@@ -759,7 +763,7 @@ do
 			Name = 'Color';
 			BackgroundColor3 = Color3.new(1, 1, 1);
 			BorderColor3 = Color3.new(0, 0, 0);
-			Position = UDim2.fromOffset(DisplayFrame.AbsolutePosition.X, DisplayFrame.AbsolutePosition.Y + 18),
+			Position = UDim2.fromOffset(AbsToGui(DisplayFrame.AbsolutePosition).X, AbsToGui(DisplayFrame.AbsolutePosition).Y + 18),
 			Size = UDim2.fromOffset(230, Info.Transparency and 271 or 253);
 			Visible = false;
 			ZIndex = 15;
@@ -767,7 +771,8 @@ do
 		});
 
 		DisplayFrame:GetPropertyChangedSignal('AbsolutePosition'):Connect(function()
-			PickerFrameOuter.Position = UDim2.fromOffset(DisplayFrame.AbsolutePosition.X, DisplayFrame.AbsolutePosition.Y + 18);
+			local _p = AbsToGui(DisplayFrame.AbsolutePosition);
+			PickerFrameOuter.Position = UDim2.fromOffset(_p.X, _p.Y + 18);
 		end)
 
 		local PickerFrameInner = Library:Create('Frame', {
@@ -1216,7 +1221,8 @@ do
 			if (not _visible) then
 				return;
 			end;
-			local AbsPos, AbsSize = PickerFrameOuter.AbsolutePosition, PickerFrameOuter.AbsoluteSize;
+			local AbsPos = AbsToGui(PickerFrameOuter.AbsolutePosition);
+			local AbsSize = PickerFrameOuter.AbsoluteSize;
 			if (Mouse.X < AbsPos.X or Mouse.X > AbsPos.X + AbsSize.X or Mouse.Y < (AbsPos.Y - 20 - 1) or Mouse.Y > AbsPos.Y + AbsSize.Y) then
 				ColorPicker:Hide();
 			end;
@@ -1301,7 +1307,7 @@ do
 
 		local ModeSelectOuter = Library:Create('Frame', {
 			BorderColor3 = Color3.new(0, 0, 0);
-			Position = UDim2.fromOffset(ToggleLabel.AbsolutePosition.X + ToggleLabel.AbsoluteSize.X + 4, ToggleLabel.AbsolutePosition.Y + 1);
+			Position = UDim2.fromOffset(AbsToGui(ToggleLabel.AbsolutePosition).X + ToggleLabel.AbsoluteSize.X + 4, AbsToGui(ToggleLabel.AbsolutePosition).Y + 1);
 			Size = UDim2.new(0, 60, 0, 45 + 2);
 			Visible = false;
 			ZIndex = 14;
@@ -1309,7 +1315,8 @@ do
 		});
 
 		ToggleLabel:GetPropertyChangedSignal('AbsolutePosition'):Connect(function()
-			ModeSelectOuter.Position = UDim2.fromOffset(ToggleLabel.AbsolutePosition.X + ToggleLabel.AbsoluteSize.X + 4, ToggleLabel.AbsolutePosition.Y + 1);
+			local _mp = AbsToGui(ToggleLabel.AbsolutePosition);
+			ModeSelectOuter.Position = UDim2.fromOffset(_mp.X + ToggleLabel.AbsoluteSize.X + 4, _mp.Y + 1);
 		end);
 
 		local ModeSelectInner = Library:Create('Frame', {
@@ -2414,9 +2421,9 @@ do
 	function Funcs:AddSlider(Idx, Info, SliderParent)
 		assert(Info.Default, 'AddSlider: Missing default value.');
 		assert(Info.Text, 'AddSlider: Missing slider text.');
-		assert(Info.Min, 'AddSlider: Missing minimum value.');
+		assert(Info.Min ~= nil, 'AddSlider: Missing minimum value.');
 		assert(Info.Max, 'AddSlider: Missing maximum value.');
-		assert(Info.Rounding, 'AddSlider: Missing rounding value.');
+		assert(Info.Rounding ~= nil, 'AddSlider: Missing rounding value.');
 
 		local Blanks = { };
 		local Slider = {
@@ -2829,7 +2836,8 @@ do
 		});
 
 		local function RecalculateListPosition()
-			ListOuter.Position = UDim2.fromOffset(DropdownOuter.AbsolutePosition.X, DropdownOuter.AbsolutePosition.Y + DropdownOuter.Size.Y.Offset + 1);
+			local _dp = AbsToGui(DropdownOuter.AbsolutePosition);
+			ListOuter.Position = UDim2.fromOffset(_dp.X, _dp.Y + DropdownOuter.Size.Y.Offset + 1);
 		end;
 
 		local function RecalculateListSize(YSize)
@@ -3122,7 +3130,8 @@ do
 			if (not _visible) then
 				return;
 			end;
-			local AbsPos, AbsSize = ListOuter.AbsolutePosition, ListOuter.AbsoluteSize;
+			local AbsPos = AbsToGui(ListOuter.AbsolutePosition);
+			local AbsSize = ListOuter.AbsoluteSize;
 			if Mouse.X < AbsPos.X or Mouse.X > AbsPos.X + AbsSize.X
 				or Mouse.Y < (AbsPos.Y - 20 - 1) or Mouse.Y > AbsPos.Y + AbsSize.Y then
 
@@ -3618,7 +3627,7 @@ function Library:CreatePopout(Config)
 	if typeof(Config.Position) ~= 'UDim2' then Config.Position = UDim2.fromOffset(175, 50) end;
 
 
-	--if typeof(Config.Size) ~= 'UDim2' then Config.Size = UDim2.fromOffset(550, 600) end;
+	--if typeof(Config.Size) ~= 'UDim2' then Config.Size = UDim2.fromOffset(750, 600) end;
 
 	if Config.Center then
 		Config.AnchorPoint = Vector2.new(0.5, 0.5);
@@ -3637,8 +3646,6 @@ function Library:CreatePopout(Config)
 		ZIndex = 1;
 		Parent = ScreenGui;
 	});
-
-	Library:MakeDraggableOutline(Outer, 25);
 
 	local Inner = Library:Create('Frame', {
 		BackgroundColor3 = Library.MainColor;
@@ -3663,6 +3670,8 @@ function Library:CreatePopout(Config)
 		ZIndex = 1;
 		Parent = Inner;
 	});
+
+	Library:MakeDraggableOutline(WindowLabel, Outer);
 
 	local VersionLabel = Library:CreateLabel({
 		Position = UDim2.new(0, -8, 0, 0);
@@ -3863,11 +3872,15 @@ function Library:CreateWindow(...)
 	if type(Config.MenuFadeTime) ~= 'number' then Config.MenuFadeTime = 0.2 end
 	
 	if typeof(Config.Position) ~= 'UDim2' then Config.Position = UDim2.fromOffset(175, 50) end
-	if typeof(Config.Size) ~= 'UDim2' then Config.Size = UDim2.fromOffset(550, 600) end
+	if typeof(Config.Size) ~= 'UDim2' then Config.Size = UDim2.fromOffset(750, 600) end
 
 	if Config.Center then
-		Config.AnchorPoint = Vector2.new(0.5, 0.5)
-		Config.Position = UDim2.fromScale(0.5, 0.5)
+		local vp = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1280, 720);
+		Config.AnchorPoint = Vector2.zero;
+		Config.Position = UDim2.fromOffset(
+			math.floor((vp.X - Config.Size.X.Offset) / 2),
+			math.floor((vp.Y - Config.Size.Y.Offset) / 2)
+		);
 	end
 
 	Library.UISize = Config.Size;
@@ -3886,8 +3899,6 @@ function Library:CreateWindow(...)
 		ZIndex = 1;
 		Parent = ScreenGui;
 	});
-
-	Library:MakeDraggableOutline(Outer, 25);
 
 	local ScrollFrames = {};
 
@@ -3925,6 +3936,8 @@ function Library:CreateWindow(...)
 		Parent = Inner;
 	});
 
+	Library:MakeDraggableOutline(WindowLabel, Outer);
+
 	--local VersionLabel = Library:CreateLabel({
 	--	Position = UDim2.new(0, -8, 0, 0);
 	--	Size = UDim2.new(1, 0, 0, 25);
@@ -3949,6 +3962,71 @@ function Library:CreateWindow(...)
 		ZIndex = 1;
 		Parent = Inner;
 	});
+
+	-- FadingTitle: per-letter labels that cycle through Library.FadeColor edges-inward.
+	-- Set Config.FadingTitle=true and Library.FadeColor to any Color3.
+	if Config.FadingTitle and Config.Title and #Config.Title > 0 then
+		WindowLabel.Text = '';
+		local _letters = {};
+		local function _buildLetters()
+			for _, l in ipairs(_letters) do pcall(function() l:Destroy() end) end;
+			table.clear(_letters);
+			local widths = {}; local totalW = 0;
+			for i = 1, #Config.Title do
+				local w = Library:GetTextBounds(Config.Title:sub(i,i), Library.Font, 14);
+				widths[i] = w; totalW = totalW + w;
+			end;
+			local startX = math.floor((Inner.AbsoluteSize.X - totalW) / 2);
+			local curX = startX;
+			for i = 1, #Config.Title do
+				local lbl = Library:CreateLabel({
+					Position = UDim2.fromOffset(curX, 4);
+					Size = UDim2.fromOffset(widths[i] + 1, 18);
+					Text = Config.Title:sub(i,i);
+					TextXAlignment = Enum.TextXAlignment.Left;
+					TextSize = 14; ZIndex = 2; Parent = Inner;
+				});
+				_letters[i] = lbl; curX = curX + widths[i];
+			end;
+		end;
+		task.spawn(function()
+			while Inner.AbsoluteSize.X == 0 do task.wait() end;
+			_buildLetters();
+			Inner:GetPropertyChangedSignal('AbsoluteSize'):Connect(function() task.defer(_buildLetters) end);
+			local function edgesOrder(n)
+				local o = {};
+				for i = 1, math.ceil(n/2) do
+					table.insert(o, i);
+					if i ~= n-i+1 then table.insert(o, n-i+1) end;
+				end;
+				return o;
+			end;
+			local delay, ft, pause = 0.06, 0.18, 2.0;
+			while Inner.Parent do
+				local n = #_letters;
+				if n == 0 then task.wait(0.5); continue end;
+				local fc = Library.FadeColor or Library.AccentColor;
+				local ord = edgesOrder(n);
+				for _, i in ipairs(ord) do
+					if not Inner.Parent then break end;
+					if _letters[i] and _letters[i].Parent then
+						TweenService:Create(_letters[i], TweenInfo.new(ft, Enum.EasingStyle.Quad), { TextColor3 = fc }):Play();
+					end;
+					task.wait(delay);
+				end;
+				task.wait(ft);
+				local rev = {}; for j = #ord, 1, -1 do table.insert(rev, ord[j]) end;
+				for _, i in ipairs(rev) do
+					if not Inner.Parent then break end;
+					if _letters[i] and _letters[i].Parent then
+						TweenService:Create(_letters[i], TweenInfo.new(ft, Enum.EasingStyle.Quad), { TextColor3 = Library.FontColor }):Play();
+					end;
+					task.wait(delay);
+				end;
+				task.wait(ft + pause);
+			end;
+		end);
+	end;
 
 	local MainSectionOuter = Library:Create('Frame', {
 		BackgroundColor3 = Library.BackgroundColor;
@@ -4557,8 +4635,7 @@ function Library:CreateWindow(...)
 				while Toggled and ScreenGui.Parent do
 					InputService.MouseIconEnabled = false;
 
-					local mPos = InputService:GetMouseLocation();
-					local udim = UDim2.fromOffset(mPos.X, mPos.Y - guiservice:GetGuiInset().Y - 1);
+					local udim = UDim2.fromOffset(Mouse.X, Mouse.Y);
 
 					Cursor.ImageColor3 = Library.AccentColor;
 					Cursor.Position, CursorOutline.Position = udim, udim - UDim2.fromOffset(1, 1);
