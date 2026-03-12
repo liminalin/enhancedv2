@@ -61,9 +61,7 @@ local Library = {
 		};
 	]]
 
-	FadeColor = Color3.new(0, 0, 0);
 
-	FadingAnimation = true;
 
 	Signals = {};
 	ScreenGui = ScreenGui;
@@ -514,6 +512,91 @@ function Library:GiveSignal(Signal)
 	-- Only used for signals not attached to library instances, as those should be cleaned up on object destruction by Roblox
 	table.insert(Library.Signals, Signal)
 end
+
+-- watermark
+do
+	local WatermarkGui = Instance.new('ScreenGui');
+	WatermarkGui.Name = 'LibraryWatermark';
+	WatermarkGui.ResetOnSpawn = false;
+	WatermarkGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling;
+	pcall(function() WatermarkGui.IgnoreGuiInset = true end);
+	pcall(function() syn.protect_gui(WatermarkGui) end);
+	pcall(function() WatermarkGui.Parent = game:GetService('CoreGui') end);
+	if not WatermarkGui.Parent then WatermarkGui.Parent = game:GetService('Players').LocalPlayer:WaitForChild('PlayerGui') end;
+
+	local WatermarkFrame = Instance.new('Frame');
+	WatermarkFrame.BackgroundColor3 = Library.MainColor;
+	WatermarkFrame.BorderColor3 = Library.AccentColor;
+	WatermarkFrame.BorderSizePixel = 1;
+	WatermarkFrame.Position = UDim2.fromOffset(10, 10);
+	WatermarkFrame.AutomaticSize = Enum.AutomaticSize.XY;
+	WatermarkFrame.Visible = false;
+	WatermarkFrame.Parent = WatermarkGui;
+
+	local WatermarkLabel = Instance.new('TextLabel');
+	WatermarkLabel.BackgroundTransparency = 1;
+	WatermarkLabel.Font = Library.Font;
+	WatermarkLabel.TextColor3 = Library.FontColor;
+	WatermarkLabel.TextSize = 13;
+	WatermarkLabel.Text = 'CyanGen';
+	WatermarkLabel.AutomaticSize = Enum.AutomaticSize.XY;
+	WatermarkLabel.TextXAlignment = Enum.TextXAlignment.Left;
+	WatermarkLabel.Size = UDim2.fromOffset(0, 0);
+	WatermarkLabel.Parent = WatermarkFrame;
+
+	local WatermarkPadding = Instance.new('UIPadding');
+	WatermarkPadding.PaddingLeft = UDim.new(0, 6);
+	WatermarkPadding.PaddingRight = UDim.new(0, 6);
+	WatermarkPadding.PaddingTop = UDim.new(0, 3);
+	WatermarkPadding.PaddingBottom = UDim.new(0, 3);
+	WatermarkPadding.Parent = WatermarkFrame;
+
+	Library.Watermark = {
+		Enabled = false;
+		Parts = {};  -- which parts to show: 'game name', 'executor', 'utc date'
+		Frame = WatermarkFrame;
+		Label = WatermarkLabel;
+	};
+
+	local function updateWatermark()
+		if not Library.Watermark.Enabled then
+			WatermarkFrame.Visible = false;
+			return;
+		end;
+		WatermarkFrame.Visible = true;
+		local parts = { 'CyanGen' };
+		local enabled = Library.Watermark.Parts;
+		if enabled['game name'] then
+			local ok, name = pcall(function() return game:GetService('MarketplaceService'):GetProductInfo(game.PlaceId).Name end);
+			table.insert(parts, ok and name or tostring(game.PlaceId));
+		end;
+		if enabled['executor'] then
+			local exec = 'unknown';
+			if identifyexecutor then pcall(function() exec = identifyexecutor() end) end;
+			table.insert(parts, exec);
+		end;
+		if enabled['utc date'] then
+			table.insert(parts, os.date('!%Y-%m-%d %H:%M UTC'));
+		end;
+		WatermarkLabel.Text = table.concat(parts, ' - ');
+		WatermarkLabel.Font = Library.Font;
+		WatermarkLabel.TextColor3 = Library.FontColor;
+		WatermarkFrame.BackgroundColor3 = Library.MainColor;
+		WatermarkFrame.BorderColor3 = Library.AccentColor;
+	end;
+
+	Library.UpdateWatermark = updateWatermark;
+
+	-- update every second for utc date
+	task.spawn(function()
+		while WatermarkGui.Parent do
+			if Library.Watermark.Enabled then
+				updateWatermark();
+			end;
+			task.wait(1);
+		end;
+	end);
+end;
 
 function Library:Unload()
 	-- Unload all of the signals
@@ -4034,164 +4117,6 @@ function Library:CreateWindow(...)
 	end;
 
 
-	-- shared helper: build per-letter labels for text inside parentFrame
-	-- waits for real AbsoluteSize before positioning (fixes zero-size on first load)
-	local function buildLetterLabels(text, parentFrame, rightAlign)
-		local letters = {};
-		local function build()
-			for _, lbl in ipairs(letters) do pcall(function() lbl:Destroy() end) end;
-			table.clear(letters);
-			local totalW = 0;
-			local widths = {};
-			for i = 1, #text do
-				local w = Library:GetTextBounds(text:sub(i,i), Library.Font, 14);
-				table.insert(widths, w);
-				totalW = totalW + w;
-			end;
-			local frameW = parentFrame.AbsoluteSize.X;
-			local startX = rightAlign
-				and math.floor(frameW - totalW - 8)
-				or  math.floor((frameW - totalW) / 2);
-			local curX = startX;
-			for i = 1, #text do
-				local lbl = Library:CreateLabel({
-					Position       = UDim2.fromOffset(curX, 4);
-					Size           = UDim2.fromOffset(widths[i] + 1, 18);
-					Text           = text:sub(i,i);
-					TextXAlignment = Enum.TextXAlignment.Left;
-					TextSize       = 14;
-					ZIndex         = 2;
-					Parent         = parentFrame;
-				});
-				table.insert(letters, lbl);
-				curX = curX + widths[i];
-			end;
-		end;
-		task.spawn(function()
-			-- wait until AbsoluteSize is real (gui may not be visible yet on first frame)
-			while parentFrame.AbsoluteSize.X == 0 do task.wait() end;
-			build();
-			parentFrame:GetPropertyChangedSignal('AbsoluteSize'):Connect(function()
-				task.defer(build);
-			end);
-		end);
-		return letters;
-	end;
-
-	-- shared helper: build edges-inward index order for n letters
-	local function edgesOrder(n)
-		local o = {};
-		for i = 1, math.ceil(n / 2) do
-			table.insert(o, i);
-			if i ~= n - i + 1 then table.insert(o, n - i + 1) end;
-		end;
-		return o;
-	end;
-
-	-- ColoredTitle: letters tween to FadeColor edges-inward then back to FontColor
-	if Config.ColoredTitle and Config.Title and #Config.Title > 0 then
-		WindowLabel.Text = '';
-		local letters = buildLetterLabels(Config.Title, Inner, false);
-		task.spawn(function()
-			while #letters == 0 do task.wait() end;
-			local delay = 0.07; local ft = 0.2; local pause = 1.8;
-			while Inner.Parent do
-				local n = #letters;
-				if n == 0 then task.wait(0.5); continue end;
-				local fc = Library.FadeColor or Color3.new(0,0,0);
-				local ord = edgesOrder(n);
-				for _, i in ipairs(ord) do
-					if not Inner.Parent then break end;
-					if letters[i] and letters[i].Parent then
-						TweenService:Create(letters[i], TweenInfo.new(ft), { TextColor3 = fc }):Play();
-					end;
-					task.wait(delay);
-				end;
-				task.wait(ft);
-				local rev = {}; for j = #ord, 1, -1 do table.insert(rev, ord[j]) end;
-				for _, i in ipairs(rev) do
-					if not Inner.Parent then break end;
-					if letters[i] and letters[i].Parent then
-						TweenService:Create(letters[i], TweenInfo.new(ft), { TextColor3 = Library.FontColor }):Play();
-					end;
-					task.wait(delay);
-				end;
-				task.wait(ft + pause);
-			end;
-		end);
-	end;
-
-	-- ColoredVersion: same color tween on version string, right-aligned
-	if Config.ColoredVersion and Config.Version and #tostring(Config.Version) > 0 then
-		VersionLabel.Text = '';
-		local ver = tostring(Config.Version);
-		local letters = buildLetterLabels(ver, Inner, true);
-		task.spawn(function()
-			while #letters == 0 do task.wait() end;
-			local delay = 0.07; local ft = 0.2; local pause = 1.8;
-			while Inner.Parent do
-				local n = #letters;
-				if n == 0 then task.wait(0.5); continue end;
-				local fc = Library.FadeColor or Color3.new(0,0,0);
-				local ord = edgesOrder(n);
-				for _, i in ipairs(ord) do
-					if not Inner.Parent then break end;
-					if letters[i] and letters[i].Parent then
-						TweenService:Create(letters[i], TweenInfo.new(ft), { TextColor3 = fc }):Play();
-					end;
-					task.wait(delay);
-				end;
-				task.wait(ft);
-				local rev = {}; for j = #ord, 1, -1 do table.insert(rev, ord[j]) end;
-				for _, i in ipairs(rev) do
-					if not Inner.Parent then break end;
-					if letters[i] and letters[i].Parent then
-						TweenService:Create(letters[i], TweenInfo.new(ft), { TextColor3 = Library.FontColor }):Play();
-					end;
-					task.wait(delay);
-				end;
-				task.wait(ft + pause);
-			end;
-		end);
-	end;
-
-	-- FadingName: letters go invisible edges-inward then reappear center-outward
-	if Config.FadingName and Config.Title and #Config.Title > 0 then
-		if not Config.ColoredTitle then WindowLabel.Text = '' end;
-		local letters = buildLetterLabels(Config.Title, Inner, false);
-		task.spawn(function()
-			while #letters == 0 do task.wait() end;
-			local delay = 0.07; local ft = 0.18; local pause = 1.8;
-			while Inner.Parent do
-				local n = #letters;
-				if n == 0 then task.wait(0.5); continue end;
-				local ord = edgesOrder(n);
-				for _, i in ipairs(ord) do
-					if not Inner.Parent then break end;
-					if letters[i] and letters[i].Parent then
-						TweenService:Create(letters[i], TweenInfo.new(ft), { TextTransparency = 1 }):Play();
-					end;
-					task.wait(delay);
-				end;
-				task.wait(ft);
-				local rev = {}; for j = #ord, 1, -1 do table.insert(rev, ord[j]) end;
-				for _, i in ipairs(rev) do
-					if not Inner.Parent then break end;
-					if letters[i] and letters[i].Parent then
-						TweenService:Create(letters[i], TweenInfo.new(ft), { TextTransparency = 0 }):Play();
-					end;
-					task.wait(delay);
-				end;
-				task.wait(ft + pause);
-			end;
-		end);
-	end;
-
-
-
-
-
-
 	function Window:AddTab(Name)
 
 
@@ -4672,7 +4597,6 @@ function Library:CreateWindow(...)
 	local TransparencyCache = {};
 	local Toggled = false;
 	local Fading = false;
-	local FullWindowSize = Vector2.new(Config.Size.X, Config.Size.Y);
 
 	function Library:Toggle()
 		if Fading then
@@ -4732,50 +4656,6 @@ function Library:CreateWindow(...)
 
 		if (not Config.DontFade) then
 			Outer.Parent = ScreenGui;
-
-			if Library.FadingAnimation then
-				if Toggled then
-					-- grow from 85% + transparent back to full original size
-					local fullW = FullWindowSize.X;
-					local fullH = FullWindowSize.Y;
-					local smallW = fullW * 0.85;
-					local smallH = fullH * 0.85;
-					local cx = Outer.AbsolutePosition.X + smallW / 2;
-					local cy = Outer.AbsolutePosition.Y + smallH / 2;
-					Outer.AnchorPoint = Vector2.new(0, 0);
-					Outer.Size = UDim2.fromOffset(smallW, smallH);
-					Outer.Position = UDim2.fromOffset(cx - smallW / 2, cy - smallH / 2);
-					for _, Desc in next, Outer:GetDescendants() do
-						if Desc:IsA('TextLabel') or Desc:IsA('TextBox') then
-							Desc.TextTransparency = 1;
-						elseif Desc:IsA('Frame') or Desc:IsA('ScrollingFrame') then
-							if Desc.BackgroundTransparency < 1 then Desc.BackgroundTransparency = 1 end;
-						elseif Desc:IsA('ImageLabel') then
-							Desc.ImageTransparency = 1; Desc.BackgroundTransparency = 1;
-						elseif Desc:IsA('UIStroke') then
-							Desc.Transparency = 1;
-						end;
-					end;
-					TweenService:Create(Outer, TweenInfo.new(FadeTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-						Size     = UDim2.fromOffset(fullW, fullH);
-						Position = UDim2.fromOffset(cx - fullW / 2, cy - fullH / 2);
-					}):Play();
-				else
-					-- shrink + fade out
-					local fullW = FullWindowSize.X;
-					local fullH = FullWindowSize.Y;
-					local cx = Outer.AbsolutePosition.X + fullW / 2;
-					local cy = Outer.AbsolutePosition.Y + fullH / 2;
-					local shrinkW = fullW * 0.85;
-					local shrinkH = fullH * 0.85;
-					Outer.AnchorPoint = Vector2.new(0, 0);
-					Outer.Position = UDim2.fromOffset(cx - fullW / 2, cy - fullH / 2);
-					TweenService:Create(Outer, TweenInfo.new(FadeTime, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-						Size     = UDim2.fromOffset(shrinkW, shrinkH);
-						Position = UDim2.fromOffset(cx - shrinkW / 2, cy - shrinkH / 2);
-					}):Play();
-				end;
-			end;
 
 			for _, Desc in next, Outer:GetDescendants() do
 				local Properties = {};
