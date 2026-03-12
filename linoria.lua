@@ -17,7 +17,7 @@ ProtectGui(ScreenGui);
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global;
 ScreenGui.Parent = CoreGui;
 ScreenGui.DisplayOrder = 20;
-ScreenGui.IgnoreGuiInset = true;
+ScreenGui.IgnoreGuiInset = True;
 
 local Toggles = {};
 local Options = {};
@@ -275,36 +275,51 @@ function Library:MakeResizable(Outer, OnResize)
 end;
 
 local DraggingGui = Instance.new("ScreenGui", gethui());
-function Library:MakeDraggableOutline(TitleBar, WindowOuter)
-	local Target = WindowOuter or TitleBar;
-	TitleBar.Active = true;
+function Library:MakeDraggableOutline(Instance, Cutoff)
+	Instance.Active = true;
 
-	TitleBar.InputBegan:Connect(function(Input)
-		if Input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end;
+	Instance.InputBegan:Connect(function(Input)
+		if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+			local ObjPos = Vector2.new(
+				Mouse.X - Instance.AbsolutePosition.X,
+				Mouse.Y - Instance.AbsolutePosition.Y
+			);
 
-		local ap = Target.AbsolutePosition;
-		local ObjPos = Vector2.new(Mouse.X - ap.X, Mouse.Y - ap.Y);
+			if ObjPos.Y > (Cutoff or 40) then
+				return;
+			end;
 
-		local frame = Library:Create("Frame", {
-			Parent = DraggingGui;
-			BackgroundTransparency = 1;
-			Size = Target.Size;
-			Position = Target.Position;
-		});
-		local uistroke = Library:Create("UIStroke", {
-			Parent = frame;
-			Color = Library.AccentColor or Color3.new(0, 0, 0);
-		});
+			local frame = Library:Create("Frame", {
+				Parent = DraggingGui;
+				AnchorPoint = Instance.AnchorPoint;
+				BackgroundTransparency = 1;
+				Size = Instance.Size;
+				Position = Instance.Position;
+			});
+			local uistroke = Library:Create("UIStroke", {
+				Parent = frame;
+				Color = Library.AccentColor or Color3.new(0, 0, 0);
+			});
 
-		while InputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) do
-			frame.Position = UDim2.fromOffset(Mouse.X - ObjPos.X, Mouse.Y - ObjPos.Y);
-			uistroke.Color = Library.AccentColor or Color3.new(0, 0, 0);
-			RenderStepped:Wait();
+			while InputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) do
+				frame.Position = UDim2.new(
+					0,
+					Mouse.X - ObjPos.X + (Instance.Size.X.Offset * Instance.AnchorPoint.X),
+					0,
+					Mouse.Y - ObjPos.Y + (Instance.Size.Y.Offset * Instance.AnchorPoint.Y)
+				);
+				uistroke.Color = Library.AccentColor or Color3.new(0, 0, 0);
+				RenderStepped:Wait();
+			end;
+			Instance.Position = UDim2.new(
+				0,
+				Mouse.X - ObjPos.X + (Instance.Size.X.Offset * Instance.AnchorPoint.X),
+				0,
+				Mouse.Y - ObjPos.Y + (Instance.Size.Y.Offset * Instance.AnchorPoint.Y)
+			);
+			frame:Destroy();
 		end;
-
-		Target.Position = UDim2.fromOffset(Mouse.X - ObjPos.X, Mouse.Y - ObjPos.Y);
-		frame:Destroy();
-	end);
+	end)
 end;
 function Library:AddToolTip(InfoStr, HoverInstance)
 	local X, Y = Library:GetTextBounds(InfoStr, Library.Font, 14);
@@ -2393,11 +2408,11 @@ do
 	end;
 
 	function Funcs:AddSlider(Idx, Info, SliderParent)
-		assert(Info.Default ~= nil, 'AddSlider: Missing default value.');
+		assert(Info.Default, 'AddSlider: Missing default value.');
 		assert(Info.Text, 'AddSlider: Missing slider text.');
-		assert(Info.Min ~= nil, 'AddSlider: Missing minimum value.');
-		assert(Info.Max ~= nil, 'AddSlider: Missing maximum value.');
-		assert(Info.Rounding ~= nil, 'AddSlider: Missing rounding value.');
+		assert(Info.Min, 'AddSlider: Missing minimum value.');
+		assert(Info.Max, 'AddSlider: Missing maximum value.');
+		assert(Info.Rounding, 'AddSlider: Missing rounding value.');
 
 		local Blanks = { };
 		local Slider = {
@@ -3619,7 +3634,7 @@ function Library:CreatePopout(Config)
 		Parent = ScreenGui;
 	});
 
-	Library:MakeDraggableOutline(Outer, 25); -- replaced below
+	Library:MakeDraggableOutline(Outer, 25);
 
 	local Inner = Library:Create('Frame', {
 		BackgroundColor3 = Library.MainColor;
@@ -3644,8 +3659,6 @@ function Library:CreatePopout(Config)
 		ZIndex = 1;
 		Parent = Inner;
 	});
-
-	Library:MakeDraggableOutline(WindowLabel, Outer);
 
 	local VersionLabel = Library:CreateLabel({
 		Position = UDim2.new(0, -8, 0, 0);
@@ -3849,12 +3862,8 @@ function Library:CreateWindow(...)
 	if typeof(Config.Size) ~= 'UDim2' then Config.Size = UDim2.fromOffset(750, 600) end
 
 	if Config.Center then
-		local vp = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1280, 720);
-		Config.AnchorPoint = Vector2.zero;
-		Config.Position = UDim2.fromOffset(
-			math.floor((vp.X - Config.Size.X.Offset) / 2),
-			math.floor((vp.Y - Config.Size.Y.Offset) / 2)
-		);
+		Config.AnchorPoint = Vector2.new(0.5, 0.5)
+		Config.Position = UDim2.fromScale(0.5, 0.5)
 	end
 
 	Library.UISize = Config.Size;
@@ -3874,7 +3883,7 @@ function Library:CreateWindow(...)
 		Parent = ScreenGui;
 	});
 
-	Library:MakeDraggableOutline(Outer, 25); -- replaced below
+	Library:MakeDraggableOutline(Outer, 25);
 
 	local ScrollFrames = {};
 
@@ -3912,8 +3921,6 @@ function Library:CreateWindow(...)
 		Parent = Inner;
 	});
 
-	Library:MakeDraggableOutline(WindowLabel, Outer);
-
 	--local VersionLabel = Library:CreateLabel({
 	--	Position = UDim2.new(0, -8, 0, 0);
 	--	Size = UDim2.new(1, 0, 0, 25);
@@ -3938,71 +3945,6 @@ function Library:CreateWindow(...)
 		ZIndex = 1;
 		Parent = Inner;
 	});
-
-	-- FadingTitle: letters cycle through Library.FadeColor edges-inward then back.
-	-- Enable with FadingTitle=true in CreateWindow. Color controlled by Library.FadeColor.
-	if Config.FadingTitle and Config.Title and #Config.Title > 0 then
-		WindowLabel.Text = '';
-		local letters = {};
-		local function buildLetters()
-			for _, l in ipairs(letters) do pcall(function() l:Destroy() end) end;
-			table.clear(letters);
-			local widths = {}; local totalW = 0;
-			for i = 1, #Config.Title do
-				local w = Library:GetTextBounds(Config.Title:sub(i,i), Library.Font, 14);
-				widths[i] = w; totalW = totalW + w;
-			end;
-			local startX = math.floor((Inner.AbsoluteSize.X - totalW) / 2);
-			local curX = startX;
-			for i = 1, #Config.Title do
-				local lbl = Library:CreateLabel({
-					Position = UDim2.fromOffset(curX, 4);
-					Size = UDim2.fromOffset(widths[i] + 1, 18);
-					Text = Config.Title:sub(i,i);
-					TextXAlignment = Enum.TextXAlignment.Left;
-					TextSize = 14; ZIndex = 2; Parent = Inner;
-				});
-				letters[i] = lbl; curX = curX + widths[i];
-			end;
-		end;
-		task.spawn(function()
-			while Inner.AbsoluteSize.X == 0 do task.wait() end;
-			buildLetters();
-			Inner:GetPropertyChangedSignal('AbsoluteSize'):Connect(function() task.defer(buildLetters) end);
-			local function edgesOrder(n)
-				local o = {};
-				for i = 1, math.ceil(n/2) do
-					table.insert(o, i);
-					if i ~= n-i+1 then table.insert(o, n-i+1) end;
-				end;
-				return o;
-			end;
-			local delay, ft, pause = 0.06, 0.18, 2.0;
-			while Inner.Parent do
-				local n = #letters;
-				if n == 0 then task.wait(0.5); continue end;
-				local fc = Library.FadeColor or Color3.new(0,0,0);
-				local ord = edgesOrder(n);
-				for _, i in ipairs(ord) do
-					if not Inner.Parent then break end;
-					if letters[i] and letters[i].Parent then
-						TweenService:Create(letters[i], TweenInfo.new(ft, Enum.EasingStyle.Quad), { TextColor3 = fc }):Play();
-					end;
-					task.wait(delay);
-				end;
-				task.wait(ft);
-				local rev = {}; for j = #ord, 1, -1 do table.insert(rev, ord[j]) end;
-				for _, i in ipairs(rev) do
-					if not Inner.Parent then break end;
-					if letters[i] and letters[i].Parent then
-						TweenService:Create(letters[i], TweenInfo.new(ft, Enum.EasingStyle.Quad), { TextColor3 = Library.FontColor }):Play();
-					end;
-					task.wait(delay);
-				end;
-				task.wait(ft + pause);
-			end;
-		end);
-	end;
 
 	local MainSectionOuter = Library:Create('Frame', {
 		BackgroundColor3 = Library.BackgroundColor;
@@ -4581,8 +4523,10 @@ function Library:CreateWindow(...)
 
 		ModalElement.Modal = Toggled;
 
-		-- custom cursor (only while gui is open)
 		if Toggled then
+			-- A bit scuffed, but if we're going from not toggled -> toggled we want to show the frame immediately so that the fade is visible.
+			Outer.Visible = true;
+			local guiservice = game:GetService("GuiService");
 			task.spawn(function()
 				local State = InputService.MouseIconEnabled;
 				local Cursor = Instance.new("ImageLabel", ScreenGui);
@@ -4608,11 +4552,9 @@ function Library:CreateWindow(...)
 				while Toggled and ScreenGui.Parent do
 					InputService.MouseIconEnabled = false;
 					local mPos = InputService:GetMouseLocation();
-					-- IgnoreGuiInset=true: ScreenGui origin is (0,0), use raw position
-					local udim = UDim2.fromOffset(mPos.X, mPos.Y);
+					local udim = UDim2.fromOffset(mPos.X, mPos.Y - guiservice:GetGuiInset().Y - 1);
 					Cursor.ImageColor3 = Library.AccentColor;
-					Cursor.Position = udim;
-					CursorOutline.Position = udim - UDim2.fromOffset(1, 1);
+					Cursor.Position, CursorOutline.Position = udim, udim - UDim2.fromOffset(1, 1);
 					RenderStepped:Wait();
 				end;
 
@@ -4626,94 +4568,47 @@ function Library:CreateWindow(...)
 		end;
 
 		if (not Config.DontFade) then
-			-- helper: tween all descendant transparencies
-			local function tweenDescendants(showOrHide)
-				for _, Desc in next, Outer:GetDescendants() do
-					local props = {};
-					if Desc:IsA('ImageLabel') or Desc:IsA('ImageButton') then
-						table.insert(props, 'ImageTransparency');
-						table.insert(props, 'BackgroundTransparency');
-					elseif Desc:IsA('TextLabel') or Desc:IsA('TextBox') or Desc:IsA('TextButton') then
-						table.insert(props, 'TextTransparency');
-						table.insert(props, 'BackgroundTransparency');
-					elseif Desc:IsA('Frame') or Desc:IsA('ScrollingFrame') then
-						table.insert(props, 'BackgroundTransparency');
-					elseif Desc:IsA('UIStroke') then
-						table.insert(props, 'Transparency');
-					end;
-					local Cache = TransparencyCache[Desc];
-					if not Cache then Cache = {}; TransparencyCache[Desc] = Cache; end;
-					for _, prop in next, props do
-						if not Cache[prop] then Cache[prop] = Desc[prop]; end;
-						if Cache[prop] == 1 then continue; end;
-						local target = (showOrHide == 'show') and Cache[prop] or 1;
-						TweenService:Create(Desc, TweenInfo.new(FadeTime, Enum.EasingStyle.Linear), { [prop] = target }):Play();
-					end;
-				end;
-			end;
+			Outer.Parent = ScreenGui;
 
-			if Toggled then
-				-- OPEN: restore saved size/pos, snap descendants to invisible, show, grow+fadein together
-				local fullSize = Library._SavedSize or Outer.Size;
-				local fullPos  = Library._SavedPos  or Outer.Position;
-				local cx = fullPos.X.Offset + fullSize.X.Offset / 2;
-				local cy = fullPos.Y.Offset + fullSize.Y.Offset / 2;
-				local sw = fullSize.X.Offset * 0.88;
-				local sh = fullSize.Y.Offset * 0.88;
-				-- snap descendants invisible so they fade in
-				for _, Desc in next, Outer:GetDescendants() do
-					local props = {};
-					if Desc:IsA('ImageLabel') or Desc:IsA('ImageButton') then
-						table.insert(props, 'ImageTransparency'); table.insert(props, 'BackgroundTransparency');
-					elseif Desc:IsA('TextLabel') or Desc:IsA('TextBox') or Desc:IsA('TextButton') then
-						table.insert(props, 'TextTransparency'); table.insert(props, 'BackgroundTransparency');
-					elseif Desc:IsA('Frame') or Desc:IsA('ScrollingFrame') then
-						table.insert(props, 'BackgroundTransparency');
-					elseif Desc:IsA('UIStroke') then
-						table.insert(props, 'Transparency');
-					end;
-					local Cache = TransparencyCache[Desc];
-					if not Cache then Cache = {}; TransparencyCache[Desc] = Cache; end;
-					for _, prop in next, props do
-						if not Cache[prop] then Cache[prop] = Desc[prop]; end;
-						if Cache[prop] ~= 1 then Desc[prop] = 1; end;
-					end;
+			for _, Desc in next, Outer:GetDescendants() do
+				local Properties = {};
+
+				if Desc:IsA('ImageLabel') then
+					table.insert(Properties, 'ImageTransparency');
+					table.insert(Properties, 'BackgroundTransparency');
+				elseif Desc:IsA('TextLabel') or Desc:IsA('TextBox') then
+					table.insert(Properties, 'TextTransparency');
+				elseif Desc:IsA('Frame') or Desc:IsA('ScrollingFrame') then
+					table.insert(Properties, 'BackgroundTransparency');
+				elseif Desc:IsA('UIStroke') then
+					table.insert(Properties, 'Transparency');
 				end;
-				Outer.Size     = UDim2.fromOffset(sw, sh);
-				Outer.Position = UDim2.fromOffset(cx - sw / 2, cy - sh / 2);
-				Outer.Visible  = true;
-				Outer.Parent   = ScreenGui;
-				TweenService:Create(Outer, TweenInfo.new(FadeTime, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-					Size = fullSize; Position = fullPos;
-				}):Play();
-				tweenDescendants('show');
-				task.wait(FadeTime);
-			else
-				-- CLOSE: save size/pos, shrink+fadeout together, then hide and restore size
-				Library._SavedSize = Outer.Size;
-				Library._SavedPos  = Outer.Position;
-				local fullSize = Outer.Size;
-				local fullPos  = Outer.Position;
-				local cx = fullPos.X.Offset + fullSize.X.Offset / 2;
-				local cy = fullPos.Y.Offset + fullSize.Y.Offset / 2;
-				local sw = fullSize.X.Offset * 0.88;
-				local sh = fullSize.Y.Offset * 0.88;
-				TweenService:Create(Outer, TweenInfo.new(FadeTime, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
-					Size     = UDim2.fromOffset(sw, sh);
-					Position = UDim2.fromOffset(cx - sw / 2, cy - sh / 2);
-				}):Play();
-				tweenDescendants('hide');
-				task.wait(FadeTime);
-				Outer.Visible  = false;
-				Outer.Parent   = nil;
-				-- restore so next open starts from correct size
-				Outer.Size     = fullSize;
-				Outer.Position = fullPos;
+
+				local Cache = TransparencyCache[Desc];
+
+				if (not Cache) then
+					Cache = {};
+					TransparencyCache[Desc] = Cache;
+				end;
+
+				for _, Prop in next, Properties do
+					if not Cache[Prop] then
+						Cache[Prop] = Desc[Prop];
+					end;
+
+					if Cache[Prop] == 1 then
+						continue;
+					end;
+
+					TweenService:Create(Desc, TweenInfo.new(FadeTime, Enum.EasingStyle.Linear), { [Prop] = Toggled and Cache[Prop] or 1 }):Play();
+				end;
 			end;
+			task.wait(FadeTime);
 		end;
 
 		Outer.Visible = Toggled;
-		Outer.Parent  = Toggled and ScreenGui or nil;
+
+		Outer.Parent = Toggled and ScreenGui or nil;
 
 		Fading = false;
 	end
