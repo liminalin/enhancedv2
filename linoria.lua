@@ -4097,31 +4097,34 @@ function Library:CreateWindow(...)
 		return o;
 	end;
 
-	-- ColoredTitle: letters tween to FadeColor edges-inward then back to FontColor
-	if Config.ColoredTitle and Config.Title and #Config.Title > 0 then
+	-- FadingTitle: continuously tweens letters through FadeColor (edges-inward) then back to FontColor.
+	-- Controlled by Config.FadingTitle = true. Color is Library.FadeColor (set via color picker).
+	if Config.FadingTitle and Config.Title and #Config.Title > 0 then
 		WindowLabel.Text = '';
 		local letters = buildLetterLabels(Config.Title, Inner, false);
 		task.spawn(function()
 			while #letters == 0 do task.wait() end;
-			local delay = 0.07; local ft = 0.2; local pause = 1.8;
+			local delay = 0.06; local ft = 0.18; local pause = 2.0;
 			while Inner.Parent do
 				local n = #letters;
 				if n == 0 then task.wait(0.5); continue end;
-				local fc = Library.FadeColor or Color3.new(0,0,0);
+				local fc = Library.FadeColor or Color3.new(0, 0, 0);
 				local ord = edgesOrder(n);
+				-- fade to FadeColor edges-inward
 				for _, i in ipairs(ord) do
 					if not Inner.Parent then break end;
 					if letters[i] and letters[i].Parent then
-						TweenService:Create(letters[i], TweenInfo.new(ft), { TextColor3 = fc }):Play();
+						TweenService:Create(letters[i], TweenInfo.new(ft, Enum.EasingStyle.Quad), { TextColor3 = fc }):Play();
 					end;
 					task.wait(delay);
 				end;
 				task.wait(ft);
+				-- fade back to FontColor center-outward (reverse)
 				local rev = {}; for j = #ord, 1, -1 do table.insert(rev, ord[j]) end;
 				for _, i in ipairs(rev) do
 					if not Inner.Parent then break end;
 					if letters[i] and letters[i].Parent then
-						TweenService:Create(letters[i], TweenInfo.new(ft), { TextColor3 = Library.FontColor }):Play();
+						TweenService:Create(letters[i], TweenInfo.new(ft, Enum.EasingStyle.Quad), { TextColor3 = Library.FontColor }):Play();
 					end;
 					task.wait(delay);
 				end;
@@ -4130,23 +4133,23 @@ function Library:CreateWindow(...)
 		end);
 	end;
 
-	-- ColoredVersion: same color tween on version string, right-aligned
+	-- FadingTitle on version string too if ColoredVersion requested
 	if Config.ColoredVersion and Config.Version and #tostring(Config.Version) > 0 then
 		VersionLabel.Text = '';
 		local ver = tostring(Config.Version);
 		local letters = buildLetterLabels(ver, Inner, true);
 		task.spawn(function()
 			while #letters == 0 do task.wait() end;
-			local delay = 0.07; local ft = 0.2; local pause = 1.8;
+			local delay = 0.06; local ft = 0.18; local pause = 2.0;
 			while Inner.Parent do
 				local n = #letters;
 				if n == 0 then task.wait(0.5); continue end;
-				local fc = Library.FadeColor or Color3.new(0,0,0);
+				local fc = Library.FadeColor or Color3.new(0, 0, 0);
 				local ord = edgesOrder(n);
 				for _, i in ipairs(ord) do
 					if not Inner.Parent then break end;
 					if letters[i] and letters[i].Parent then
-						TweenService:Create(letters[i], TweenInfo.new(ft), { TextColor3 = fc }):Play();
+						TweenService:Create(letters[i], TweenInfo.new(ft, Enum.EasingStyle.Quad), { TextColor3 = fc }):Play();
 					end;
 					task.wait(delay);
 				end;
@@ -4155,7 +4158,7 @@ function Library:CreateWindow(...)
 				for _, i in ipairs(rev) do
 					if not Inner.Parent then break end;
 					if letters[i] and letters[i].Parent then
-						TweenService:Create(letters[i], TweenInfo.new(ft), { TextColor3 = Library.FontColor }):Play();
+						TweenService:Create(letters[i], TweenInfo.new(ft, Enum.EasingStyle.Quad), { TextColor3 = Library.FontColor }):Play();
 					end;
 					task.wait(delay);
 				end;
@@ -4164,13 +4167,13 @@ function Library:CreateWindow(...)
 		end);
 	end;
 
-	-- FadingName: letters go invisible edges-inward then reappear center-outward
+	-- FadingName: letters go transparent edges-inward then reappear (visibility variant, no color)
 	if Config.FadingName and Config.Title and #Config.Title > 0 then
-		if not Config.ColoredTitle then WindowLabel.Text = '' end;
+		if not Config.FadingTitle then WindowLabel.Text = '' end;
 		local letters = buildLetterLabels(Config.Title, Inner, false);
 		task.spawn(function()
 			while #letters == 0 do task.wait() end;
-			local delay = 0.07; local ft = 0.18; local pause = 1.8;
+			local delay = 0.06; local ft = 0.16; local pause = 2.0;
 			while Inner.Parent do
 				local n = #letters;
 				if n == 0 then task.wait(0.5); continue end;
@@ -4178,7 +4181,7 @@ function Library:CreateWindow(...)
 				for _, i in ipairs(ord) do
 					if not Inner.Parent then break end;
 					if letters[i] and letters[i].Parent then
-						TweenService:Create(letters[i], TweenInfo.new(ft), { TextTransparency = 1 }):Play();
+						TweenService:Create(letters[i], TweenInfo.new(ft, Enum.EasingStyle.Quad), { TextTransparency = 1 }):Play();
 					end;
 					task.wait(delay);
 				end;
@@ -4187,7 +4190,7 @@ function Library:CreateWindow(...)
 				for _, i in ipairs(rev) do
 					if not Inner.Parent then break end;
 					if letters[i] and letters[i].Parent then
-						TweenService:Create(letters[i], TweenInfo.new(ft), { TextTransparency = 0 }):Play();
+						TweenService:Create(letters[i], TweenInfo.new(ft, Enum.EasingStyle.Quad), { TextTransparency = 0 }):Play();
 					end;
 					task.wait(delay);
 				end;
@@ -4682,22 +4685,45 @@ function Library:CreateWindow(...)
 	local Toggled = false;
 	local Fading = false;
 
-	function Library:Toggle()
-		if Fading then
-			return;
+	-- helper: tween all descendant transparencies to target and wait
+	local function tweenDescendants(target, time)
+		for _, Desc in next, Outer:GetDescendants() do
+			local props = {};
+			if Desc:IsA('ImageLabel') or Desc:IsA('ImageButton') then
+				table.insert(props, 'ImageTransparency');
+				table.insert(props, 'BackgroundTransparency');
+			elseif Desc:IsA('TextLabel') or Desc:IsA('TextBox') or Desc:IsA('TextButton') then
+				table.insert(props, 'TextTransparency');
+				table.insert(props, 'BackgroundTransparency');
+			elseif Desc:IsA('Frame') or Desc:IsA('ScrollingFrame') then
+				table.insert(props, 'BackgroundTransparency');
+			elseif Desc:IsA('UIStroke') then
+				table.insert(props, 'Transparency');
+			end;
+			local Cache = TransparencyCache[Desc];
+			if not Cache then Cache = {}; TransparencyCache[Desc] = Cache; end;
+			for _, prop in next, props do
+				if not Cache[prop] then Cache[prop] = Desc[prop]; end;
+				if Cache[prop] == 1 then continue; end;
+				TweenService:Create(Desc, TweenInfo.new(time, Enum.EasingStyle.Linear), {
+					[prop] = (target == 'show') and Cache[prop] or 1
+				}):Play();
+			end;
 		end;
+		task.wait(time);
+	end;
+
+	function Library:Toggle()
+		if Fading then return; end;
 
 		local FadeTime = Config.MenuFadeTime;
 		Fading = true;
-		Toggled = (not Toggled);
+		Toggled = not Toggled;
 		_UI_IS_VISIBLE = Toggled;
-
 		ModalElement.Modal = Toggled;
 
 		if Toggled then
-			-- A bit scuffed, but if we're going from not toggled -> toggled we want to show the frame immediately so that the fade is visible.
-			Outer.Visible = true;
-			local guiservice = game:GetService("GuiService");
+			-- spawn custom cursor
 			task.spawn(function()
 				local State = InputService.MouseIconEnabled;
 				local Cursor = Instance.new("ImageLabel", ScreenGui);
@@ -4707,7 +4733,6 @@ function Library:CreateWindow(...)
 				Cursor.ZIndex = 100;
 				Cursor.Size = UDim2.fromOffset(17, 17);
 				Cursor.Rotation = -45;
-
 				local CursorOutline = Instance.new("ImageLabel", ScreenGui);
 				CursorOutline.Image = "http://www.roblox.com/asset/?id=4292970642";
 				CursorOutline.ImageColor3 = Color3.new();
@@ -4716,21 +4741,17 @@ function Library:CreateWindow(...)
 				CursorOutline.ZIndex = 99;
 				CursorOutline.Size = UDim2.fromOffset(19, 19);
 				CursorOutline.Rotation = -45;
-
 				TweenService:Create(Cursor, TweenInfo.new(FadeTime, Enum.EasingStyle.Linear), { ImageTransparency = 0 }):Play();
 				TweenService:Create(CursorOutline, TweenInfo.new(FadeTime, Enum.EasingStyle.Linear), { ImageTransparency = 0 }):Play();
-
 				while Toggled and ScreenGui.Parent do
 					InputService.MouseIconEnabled = false;
 					local mPos = InputService:GetMouseLocation();
-					-- IgnoreGuiInset=true means the ScreenGui origin is already at (0,0)
-					-- so we just use raw mouse position with no inset subtraction
 					local udim = UDim2.fromOffset(mPos.X, mPos.Y);
 					Cursor.ImageColor3 = Library.AccentColor;
-					Cursor.Position, CursorOutline.Position = udim, udim - UDim2.fromOffset(1, 1);
+					Cursor.Position = udim;
+					CursorOutline.Position = udim - UDim2.fromOffset(1, 1);
 					RenderStepped:Wait();
 				end;
-
 				InputService.MouseIconEnabled = State;
 				TweenService:Create(Cursor, TweenInfo.new(FadeTime, Enum.EasingStyle.Linear), { ImageTransparency = 1 }):Play();
 				TweenService:Create(CursorOutline, TweenInfo.new(FadeTime, Enum.EasingStyle.Linear), { ImageTransparency = 1 }):Play();
@@ -4738,92 +4759,83 @@ function Library:CreateWindow(...)
 				Cursor:Destroy();
 				CursorOutline:Destroy();
 			end);
-		end;
 
-		if (not Config.DontFade) then
-			if Library.FadingAnimation then
-				if Toggled then
-					-- opening: snap to 85%, show, then tween grow back to full size
-					local fullSize = Library.UISize or Outer.Size;
-					local fullPos  = Library._SavedPosition or Outer.Position;
+			if not Config.DontFade then
+				local fullSize = Library._SavedSize or Outer.Size;
+				local fullPos  = Library._SavedPosition or Outer.Position;
+
+				if Library.FadingAnimation then
+					-- start small, invisible, then grow + fade in simultaneously
 					local cx = fullPos.X.Offset + fullSize.X.Offset / 2;
 					local cy = fullPos.Y.Offset + fullSize.Y.Offset / 2;
-					local smallW = fullSize.X.Offset * 0.85;
-					local smallH = fullSize.Y.Offset * 0.85;
+					local smallW = fullSize.X.Offset * 0.88;
+					local smallH = fullSize.Y.Offset * 0.88;
 					Outer.Size     = UDim2.fromOffset(smallW, smallH);
 					Outer.Position = UDim2.fromOffset(cx - smallW / 2, cy - smallH / 2);
 					Outer.Visible  = true;
 					Outer.Parent   = ScreenGui;
-					TweenService:Create(Outer, TweenInfo.new(FadeTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-						Size     = fullSize;
-						Position = fullPos;
+					-- fade all descendants to invisible first (so they fade IN)
+					for _, Desc in next, Outer:GetDescendants() do
+						local props = {};
+						if Desc:IsA('ImageLabel') or Desc:IsA('ImageButton') then
+							table.insert(props, 'ImageTransparency'); table.insert(props, 'BackgroundTransparency');
+						elseif Desc:IsA('TextLabel') or Desc:IsA('TextBox') or Desc:IsA('TextButton') then
+							table.insert(props, 'TextTransparency'); table.insert(props, 'BackgroundTransparency');
+						elseif Desc:IsA('Frame') or Desc:IsA('ScrollingFrame') then
+							table.insert(props, 'BackgroundTransparency');
+						elseif Desc:IsA('UIStroke') then
+							table.insert(props, 'Transparency');
+						end;
+						local Cache = TransparencyCache[Desc];
+						if not Cache then Cache = {}; TransparencyCache[Desc] = Cache; end;
+						for _, prop in next, props do
+							if not Cache[prop] then Cache[prop] = Desc[prop]; end;
+							if Cache[prop] ~= 1 then Desc[prop] = 1; end;
+						end;
+					end;
+					-- now tween grow + fade in together
+					TweenService:Create(Outer, TweenInfo.new(FadeTime, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+						Size = fullSize; Position = fullPos;
 					}):Play();
-					task.wait(FadeTime);
+					tweenDescendants('show', FadeTime);
 				else
-					-- closing: save position, tween shrink to 85%, then hide
+					Outer.Size    = fullSize;
+					Outer.Position = fullPos;
+					Outer.Visible = true;
+					Outer.Parent  = ScreenGui;
+					tweenDescendants('show', FadeTime);
+				end;
+			end;
+		else
+			if not Config.DontFade then
+				if Library.FadingAnimation then
+					-- save current size+pos, fade out + shrink simultaneously
+					Library._SavedSize     = Outer.Size;
+					Library._SavedPosition = Outer.Position;
 					local fullSize = Outer.Size;
 					local fullPos  = Outer.Position;
-					Library._SavedPosition = fullPos;
-					Library.UISize = fullSize;
 					local cx = fullPos.X.Offset + fullSize.X.Offset / 2;
 					local cy = fullPos.Y.Offset + fullSize.Y.Offset / 2;
-					local smallW = fullSize.X.Offset * 0.85;
-					local smallH = fullSize.Y.Offset * 0.85;
-					TweenService:Create(Outer, TweenInfo.new(FadeTime, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+					local smallW = fullSize.X.Offset * 0.88;
+					local smallH = fullSize.Y.Offset * 0.88;
+					-- fade out descendants and shrink simultaneously
+					TweenService:Create(Outer, TweenInfo.new(FadeTime, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
 						Size     = UDim2.fromOffset(smallW, smallH);
 						Position = UDim2.fromOffset(cx - smallW / 2, cy - smallH / 2);
 					}):Play();
-					task.wait(FadeTime);
+					tweenDescendants('hide', FadeTime);
 					Outer.Visible = false;
 					Outer.Parent  = nil;
-					Fading = false;
-					return;
-				end;
-			else
-				-- no animation: just show or hide instantly
-				Outer.Visible = Toggled;
-				Outer.Parent  = Toggled and ScreenGui or nil;
-				task.wait(FadeTime);
-			end;
-
-			-- transparency fade for all descendants
-			for _, Desc in next, Outer:GetDescendants() do
-				local Properties = {};
-
-				if Desc:IsA('ImageLabel') then
-					table.insert(Properties, 'ImageTransparency');
-					table.insert(Properties, 'BackgroundTransparency');
-				elseif Desc:IsA('TextLabel') or Desc:IsA('TextBox') then
-					table.insert(Properties, 'TextTransparency');
-				elseif Desc:IsA('Frame') or Desc:IsA('ScrollingFrame') then
-					table.insert(Properties, 'BackgroundTransparency');
-				elseif Desc:IsA('UIStroke') then
-					table.insert(Properties, 'Transparency');
-				end;
-
-				local Cache = TransparencyCache[Desc];
-
-				if (not Cache) then
-					Cache = {};
-					TransparencyCache[Desc] = Cache;
-				end;
-
-				for _, Prop in next, Properties do
-					if not Cache[Prop] then
-						Cache[Prop] = Desc[Prop];
-					end;
-
-					if Cache[Prop] == 1 then
-						continue;
-					end;
-
-					TweenService:Create(Desc, TweenInfo.new(FadeTime, Enum.EasingStyle.Linear), { [Prop] = Toggled and Cache[Prop] or 1 }):Play();
+					-- restore size+pos so it's correct next open
+					Outer.Size     = Library._SavedSize;
+					Outer.Position = Library._SavedPosition;
+				else
+					tweenDescendants('hide', FadeTime);
+					Outer.Visible = false;
+					Outer.Parent  = nil;
 				end;
 			end;
 		end;
-
-		Outer.Visible = Toggled;
-		Outer.Parent  = Toggled and ScreenGui or nil;
 
 		Fading = false;
 	end
