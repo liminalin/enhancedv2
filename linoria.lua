@@ -4732,25 +4732,30 @@ function Library:CreateWindow(...)
 
 			if Library.FadingAnimation then
 				if Toggled then
-					-- grow from small to full size, fade in
-					local fullSize = Outer.Size;
-					local cx = Outer.Position.X.Offset + Outer.AbsoluteSize.X / 2;
-					local cy = Outer.Position.Y.Offset + Outer.AbsoluteSize.Y / 2;
-					Outer.Size = UDim2.fromOffset(fullSize.X.Offset * 0.85, fullSize.Y.Offset * 0.85);
-					Outer.Position = UDim2.fromOffset(
-						cx - Outer.AbsoluteSize.X / 2,
-						cy - Outer.AbsoluteSize.Y / 2
-					);
+					-- grow from small to full size
+					local fullW = Outer.AbsoluteSize.X;
+					local fullH = Outer.AbsoluteSize.Y;
+					local cx = Outer.AbsolutePosition.X + fullW / 2;
+					local cy = Outer.AbsolutePosition.Y + fullH / 2;
+					local smallW = fullW * 0.85;
+					local smallH = fullH * 0.85;
+					Outer.AnchorPoint = Vector2.new(0, 0);
+					Outer.Size = UDim2.fromOffset(smallW, smallH);
+					Outer.Position = UDim2.fromOffset(cx - smallW / 2, cy - smallH / 2);
 					TweenService:Create(Outer, TweenInfo.new(FadeTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-						Size = fullSize;
+						Size     = UDim2.fromOffset(fullW, fullH);
+						Position = UDim2.fromOffset(cx - fullW / 2, cy - fullH / 2);
 					}):Play();
 				else
-					-- shrink to 85%, then hide
-					local fullSize = Outer.Size;
-					local cx = Outer.Position.X.Offset + Outer.AbsoluteSize.X / 2;
-					local cy = Outer.Position.Y.Offset + Outer.AbsoluteSize.Y / 2;
-					local shrinkW = fullSize.X.Offset * 0.85;
-					local shrinkH = fullSize.Y.Offset * 0.85;
+					-- shrink to 85%
+					local fullW = Outer.AbsoluteSize.X;
+					local fullH = Outer.AbsoluteSize.Y;
+					local cx = Outer.AbsolutePosition.X + fullW / 2;
+					local cy = Outer.AbsolutePosition.Y + fullH / 2;
+					local shrinkW = fullW * 0.85;
+					local shrinkH = fullH * 0.85;
+					Outer.AnchorPoint = Vector2.new(0, 0);
+					Outer.Position = UDim2.fromOffset(cx - fullW / 2, cy - fullH / 2);
 					TweenService:Create(Outer, TweenInfo.new(FadeTime, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
 						Size     = UDim2.fromOffset(shrinkW, shrinkH);
 						Position = UDim2.fromOffset(cx - shrinkW / 2, cy - shrinkH / 2);
