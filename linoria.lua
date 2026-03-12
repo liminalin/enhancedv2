@@ -4134,7 +4134,7 @@ function Library:CreateWindow(...)
 		end);
 	end;
 
-	if Config.FadingTitle and Config.Title and #Config.Title > 0 then
+	if Config.ColoredTitle and Config.Title and #Config.Title > 0 then
 		WindowLabel.Text = '';
 		local letters = {};
 		local _, build = makeFadingLabel(Config.Title, Inner, false, 4, 2);
@@ -4225,7 +4225,99 @@ function Library:CreateWindow(...)
 		runEdgesInwardLoop(function() return allLetters end, function() return Inner end);
 	end;
 
-	Library.FontNames = { 'code', 'gotham', 'gotham bold', 'roboto', 'roboto mono', 'source sans', 'ubuntu', 'arial' };
+	if Config.FadingName and Config.Title and #Config.Title > 0 then
+		-- FadingName: letters disappear edges-inward (transparency), then reappear center-outward
+		-- runs independently from ColoredTitle, uses same letter labels if ColoredTitle is also on,
+		-- otherwise builds its own set
+		if not Config.ColoredTitle then
+			WindowLabel.Text = '';
+		end;
+		local allLetters = {};
+
+		local function buildDirect()
+			for _, lbl in ipairs(allLetters) do pcall(function() lbl:Destroy() end) end;
+			table.clear(allLetters);
+			local totalW = 0;
+			local widths = {};
+			for i = 1, #Config.Title do
+				local w = Library:GetTextBounds(Config.Title:sub(i,i), Library.Font, 14);
+				table.insert(widths, w);
+				totalW = totalW + w;
+			end;
+			local startX = math.floor((WindowLabel.AbsoluteSize.X - totalW) / 2);
+			local curX = startX;
+			for i = 1, #Config.Title do
+				local lbl = Library:CreateLabel({
+					Position = UDim2.fromOffset(curX, 4);
+					Size     = UDim2.fromOffset(widths[i] + 1, 18);
+					Text     = Config.Title:sub(i,i);
+					TextXAlignment = Enum.TextXAlignment.Left;
+					TextSize = 14;
+					ZIndex   = 2;
+					Parent   = Inner;
+				});
+				table.insert(allLetters, lbl);
+				curX = curX + widths[i];
+			end;
+		end;
+
+		WindowLabel:GetPropertyChangedSignal('AbsoluteSize'):Connect(function()
+			task.defer(buildDirect);
+		end);
+		task.defer(buildDirect);
+
+		task.spawn(function()
+			while #allLetters == 0 do task.wait() end;
+
+			local letterDelay = 0.07;
+			local fadeTime    = 0.18;
+			local pauseTime   = 1.8;
+
+			while Inner.Parent do
+				local letters = allLetters;
+				local n = #letters;
+				if n == 0 then task.wait(0.5); continue end;
+
+				-- build edges-inward order
+				local order = {};
+				for i = 1, math.ceil(n / 2) do
+					table.insert(order, i);
+					if i ~= n - i + 1 then
+						table.insert(order, n - i + 1);
+					end;
+				end;
+
+				-- disappear edges inward
+				for _, idx in ipairs(order) do
+					if not Inner.Parent then break end;
+					local lbl = letters[idx];
+					if lbl and lbl.Parent then
+						TweenService:Create(lbl, TweenInfo.new(fadeTime), { TextTransparency = 1 }):Play();
+					end;
+					task.wait(letterDelay);
+				end;
+
+				task.wait(fadeTime);
+
+				-- reappear center outward
+				local revOrder = {};
+				for i = #order, 1, -1 do table.insert(revOrder, order[i]) end;
+
+				for _, idx in ipairs(revOrder) do
+					if not Inner.Parent then break end;
+					local lbl = letters[idx];
+					if lbl and lbl.Parent then
+						TweenService:Create(lbl, TweenInfo.new(fadeTime), { TextTransparency = 0 }):Play();
+					end;
+					task.wait(letterDelay);
+				end;
+
+				task.wait(fadeTime + pauseTime);
+			end;
+		end);
+	end;
+
+
 
 	function Window:AddTab(Name)
 
