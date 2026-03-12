@@ -53,7 +53,7 @@ local Library = {
 	};
 
 	KeypickerListVisible = true;
-	KeypickerListMode = "All"; --[[
+	KeypickerListMode = "All";
 		{
 			"Active",
 			"Toggled",
