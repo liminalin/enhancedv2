@@ -63,6 +63,8 @@ local Library = {
 
 
 
+	FadeColor = Color3.new(0, 0, 0);
+
 	Signals = {};
 	ScreenGui = ScreenGui;
 };
@@ -4029,6 +4031,157 @@ function Library:CreateWindow(...)
 
 	function Window:SetWindowTitle(Title)
 		WindowLabel.Text = Title;
+	end;
+
+	-- shared helper: build per-letter labels inside parentFrame
+	local function buildLetterLabels(text, parentFrame, rightAlign)
+		local letters = {};
+		local function build()
+			for _, lbl in ipairs(letters) do pcall(function() lbl:Destroy() end) end;
+			table.clear(letters);
+			local totalW = 0;
+			local widths = {};
+			for i = 1, #text do
+				local w = Library:GetTextBounds(text:sub(i,i), Library.Font, 14);
+				table.insert(widths, w);
+				totalW = totalW + w;
+			end;
+			local frameW = parentFrame.AbsoluteSize.X;
+			local startX = rightAlign
+				and math.floor(frameW - totalW - 8)
+				or  math.floor((frameW - totalW) / 2);
+			local curX = startX;
+			for i = 1, #text do
+				local lbl = Library:CreateLabel({
+					Position       = UDim2.fromOffset(curX, 4);
+					Size           = UDim2.fromOffset(widths[i] + 1, 18);
+					Text           = text:sub(i,i);
+					TextXAlignment = Enum.TextXAlignment.Left;
+					TextSize       = 14;
+					ZIndex         = 2;
+					Parent         = parentFrame;
+				});
+				table.insert(letters, lbl);
+				curX = curX + widths[i];
+			end;
+		end;
+		task.spawn(function()
+			while parentFrame.AbsoluteSize.X == 0 do task.wait() end;
+			build();
+			parentFrame:GetPropertyChangedSignal('AbsoluteSize'):Connect(function()
+				task.defer(build);
+			end);
+		end);
+		return letters;
+	end;
+
+	-- edges-inward order for n letters
+	local function edgesOrder(n)
+		local o = {};
+		for i = 1, math.ceil(n / 2) do
+			table.insert(o, i);
+			if i ~= n - i + 1 then table.insert(o, n - i + 1) end;
+		end;
+		return o;
+	end;
+
+	-- ColoredTitle: letters pulse to FadeColor edges-inward then back to FontColor
+	if Config.ColoredTitle and Config.Title and #Config.Title > 0 then
+		WindowLabel.Text = '';
+		local letters = buildLetterLabels(Config.Title, Inner, false);
+		task.spawn(function()
+			while #letters == 0 do task.wait() end;
+			local delay = 0.07; local ft = 0.2; local pause = 1.8;
+			while Inner.Parent do
+				local n = #letters;
+				if n == 0 then task.wait(0.5); continue end;
+				local fc = Library.FadeColor or Color3.new(0, 0, 0);
+				local ord = edgesOrder(n);
+				for _, i in ipairs(ord) do
+					if not Inner.Parent then break end;
+					if letters[i] and letters[i].Parent then
+						TweenService:Create(letters[i], TweenInfo.new(ft), { TextColor3 = fc }):Play();
+					end;
+					task.wait(delay);
+				end;
+				task.wait(ft);
+				local rev = {}; for j = #ord, 1, -1 do table.insert(rev, ord[j]) end;
+				for _, i in ipairs(rev) do
+					if not Inner.Parent then break end;
+					if letters[i] and letters[i].Parent then
+						TweenService:Create(letters[i], TweenInfo.new(ft), { TextColor3 = Library.FontColor }):Play();
+					end;
+					task.wait(delay);
+				end;
+				task.wait(ft + pause);
+			end;
+		end);
+	end;
+
+	-- ColoredVersion: same on version string, right-aligned
+	if Config.ColoredVersion and Config.Version and #tostring(Config.Version) > 0 then
+		VersionLabel.Text = '';
+		local ver = tostring(Config.Version);
+		local letters = buildLetterLabels(ver, Inner, true);
+		task.spawn(function()
+			while #letters == 0 do task.wait() end;
+			local delay = 0.07; local ft = 0.2; local pause = 1.8;
+			while Inner.Parent do
+				local n = #letters;
+				if n == 0 then task.wait(0.5); continue end;
+				local fc = Library.FadeColor or Color3.new(0, 0, 0);
+				local ord = edgesOrder(n);
+				for _, i in ipairs(ord) do
+					if not Inner.Parent then break end;
+					if letters[i] and letters[i].Parent then
+						TweenService:Create(letters[i], TweenInfo.new(ft), { TextColor3 = fc }):Play();
+					end;
+					task.wait(delay);
+				end;
+				task.wait(ft);
+				local rev = {}; for j = #ord, 1, -1 do table.insert(rev, ord[j]) end;
+				for _, i in ipairs(rev) do
+					if not Inner.Parent then break end;
+					if letters[i] and letters[i].Parent then
+						TweenService:Create(letters[i], TweenInfo.new(ft), { TextColor3 = Library.FontColor }):Play();
+					end;
+					task.wait(delay);
+				end;
+				task.wait(ft + pause);
+			end;
+		end);
+	end;
+
+	-- FadingName: letters go invisible edges-inward then reappear center-outward
+	if Config.FadingName and Config.Title and #Config.Title > 0 then
+		if not Config.ColoredTitle then WindowLabel.Text = '' end;
+		local letters = buildLetterLabels(Config.Title, Inner, false);
+		task.spawn(function()
+			while #letters == 0 do task.wait() end;
+			local delay = 0.07; local ft = 0.18; local pause = 1.8;
+			while Inner.Parent do
+				local n = #letters;
+				if n == 0 then task.wait(0.5); continue end;
+				local ord = edgesOrder(n);
+				for _, i in ipairs(ord) do
+					if not Inner.Parent then break end;
+					if letters[i] and letters[i].Parent then
+						TweenService:Create(letters[i], TweenInfo.new(ft), { TextTransparency = 1 }):Play();
+					end;
+					task.wait(delay);
+				end;
+				task.wait(ft);
+				local rev = {}; for j = #ord, 1, -1 do table.insert(rev, ord[j]) end;
+				for _, i in ipairs(rev) do
+					if not Inner.Parent then break end;
+					if letters[i] and letters[i].Parent then
+						TweenService:Create(letters[i], TweenInfo.new(ft), { TextTransparency = 0 }):Play();
+					end;
+					task.wait(delay);
+				end;
+				task.wait(ft + pause);
+			end;
+		end);
 	end;
 
 
