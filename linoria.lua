@@ -7,22 +7,7 @@ local RunService = game:GetService('RunService')
 local TweenService = game:GetService('TweenService');
 local RenderStepped = RunService.RenderStepped;
 local LocalPlayer = Players.LocalPlayer;
-local _RawMouse = cloneref(LocalPlayer:GetMouse());
-local _GuiService = game:GetService('GuiService');
--- With IgnoreGuiInset=true the ScreenGui origin is the real screen top-left.
--- GetMouseLocation() returns raw screen coords matching that space.
-local Mouse = setmetatable({}, {
-	__index = function(_, k)
-		if k == 'X' then return InputService:GetMouseLocation().X end;
-		if k == 'Y' then return InputService:GetMouseLocation().Y end;
-		return _RawMouse[k];
-	end;
-});
--- AbsolutePosition always includes GuiInset in Y. Subtract when placing UI in IgnoreGuiInset=true space.
-local function AbsToGui(absPos)
-	local inset = _GuiService:GetGuiInset();
-	return Vector2.new(absPos.X, absPos.Y - inset.Y);
-end;
+local Mouse = cloneref(LocalPlayer:GetMouse());
 
 local ProtectGui = protectgui or (syn and syn.protect_gui) or (function() end);
 
@@ -32,7 +17,7 @@ ProtectGui(ScreenGui);
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global;
 ScreenGui.Parent = CoreGui;
 ScreenGui.DisplayOrder = 20;
-ScreenGui.IgnoreGuiInset = true;
+ScreenGui.IgnoreGuiInset = True;
 
 local Toggles = {};
 local Options = {};
@@ -75,6 +60,10 @@ local Library = {
 			"All"
 		};
 	]]
+
+	FadeColor = Color3.new(0, 0, 0);
+
+	FadingAnimation = true;
 
 	Signals = {};
 	ScreenGui = ScreenGui;
@@ -202,10 +191,9 @@ function Library:MakeDraggable(Instance, Cutoff)
 
 	Instance.InputBegan:Connect(function(Input)
 		if Input.UserInputType == Enum.UserInputType.MouseButton1 then
-			local _ap = AbsToGui(Instance.AbsolutePosition);
 			local ObjPos = Vector2.new(
-				Mouse.X - _ap.X,
-				Mouse.Y - _ap.Y
+				Mouse.X - Instance.AbsolutePosition.X,
+				Mouse.Y - Instance.AbsolutePosition.Y
 			);
 
 			if ObjPos.Y > (Cutoff or 40) then
@@ -235,14 +223,14 @@ function Library:MakeResizable(Outer, OnResize)
 
 	-- detect if mouse is in the bottom-right corner of Outer
 	local function inResizeZone()
-		local ap = AbsToGui(Outer.AbsolutePosition);
+		local ap = Outer.AbsolutePosition;
 		local as = Outer.AbsoluteSize;
 		local mx, my = Mouse.X, Mouse.Y;
 		return mx >= (ap.X + as.X - HitZone) and my >= (ap.Y + as.Y - HitZone)
 			and mx <= (ap.X + as.X) and my <= (ap.Y + as.Y);
 	end;
 
-	-- invisible resize handle, drag from bottom-right corner
+	-- invisible resize handle pinned to bottom-right corner, no visible cube
 	local Handle = Library:Create('Frame', {
 		BackgroundTransparency = 1;
 		BorderSizePixel = 0;
@@ -253,7 +241,7 @@ function Library:MakeResizable(Outer, OnResize)
 
 	-- keep handle position synced to bottom-right of Outer
 	local function updateHandlePos()
-		local ap = AbsToGui(Outer.AbsolutePosition);
+		local ap = Outer.AbsolutePosition;
 		local as = Outer.AbsoluteSize;
 		Handle.Position = UDim2.fromOffset(ap.X + as.X - HitZone, ap.Y + as.Y - HitZone);
 	end;
@@ -291,39 +279,51 @@ function Library:MakeResizable(Outer, OnResize)
 end;
 
 local DraggingGui = Instance.new("ScreenGui", gethui());
-DraggingGui.IgnoreGuiInset = true;
-DraggingGui.ZIndexBehavior = Enum.ZIndexBehavior.Global;
-function Library:MakeDraggableOutline(TitleBar, WindowOuter)
-	local Target = WindowOuter or TitleBar;
-	TitleBar.Active = true;
+function Library:MakeDraggableOutline(Instance, Cutoff)
+	Instance.Active = true;
 
-	TitleBar.InputBegan:Connect(function(Input)
-		if Input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end;
-		if not Target.Parent then return end;
+	Instance.InputBegan:Connect(function(Input)
+		if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+			local ObjPos = Vector2.new(
+				Mouse.X - Instance.AbsolutePosition.X,
+				Mouse.Y - Instance.AbsolutePosition.Y
+			);
 
-		local ap = AbsToGui(Target.AbsolutePosition);
-		local ObjPos = Vector2.new(Mouse.X - ap.X, Mouse.Y - ap.Y);
+			if ObjPos.Y > (Cutoff or 40) then
+				return;
+			end;
 
-		local frame = Library:Create("Frame", {
-			Parent = DraggingGui;
-			BackgroundTransparency = 1;
-			Size = Target.Size;
-			Position = Target.Position;
-		});
-		local uistroke = Library:Create("UIStroke", {
-			Parent = frame;
-			Color = Library.AccentColor or Color3.new(0, 0, 0);
-		});
+			local frame = Library:Create("Frame", {
+				Parent = DraggingGui;
+				AnchorPoint = Instance.AnchorPoint;
+				BackgroundTransparency = 1;
+				Size = Instance.Size;
+				Position = Instance.Position;
+			});
+			local uistroke = Library:Create("UIStroke", {
+				Parent = frame;
+				Color = Library.AccentColor or Color3.new(0, 0, 0);
+			});
 
-		while InputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) do
-			frame.Position = UDim2.fromOffset(Mouse.X - ObjPos.X, Mouse.Y - ObjPos.Y);
-			uistroke.Color = Library.AccentColor or Color3.new(0, 0, 0);
-			RenderStepped:Wait();
+			while InputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) do
+				frame.Position = UDim2.new(
+					0,
+					Mouse.X - ObjPos.X + (Instance.Size.X.Offset * Instance.AnchorPoint.X),
+					0,
+					Mouse.Y - ObjPos.Y + (Instance.Size.Y.Offset * Instance.AnchorPoint.Y)
+				);
+				uistroke.Color = Library.AccentColor or Color3.new(0, 0, 0);
+				RenderStepped:Wait();
+			end;
+			Instance.Position = UDim2.new(
+				0,
+				Mouse.X - ObjPos.X + (Instance.Size.X.Offset * Instance.AnchorPoint.X),
+				0,
+				Mouse.Y - ObjPos.Y + (Instance.Size.Y.Offset * Instance.AnchorPoint.Y)
+			);
+			frame:Destroy();
 		end;
-
-		Target.Position = UDim2.fromOffset(Mouse.X - ObjPos.X, Mouse.Y - ObjPos.Y);
-		frame:Destroy();
-	end);
+	end)
 end;
 function Library:AddToolTip(InfoStr, HoverInstance)
 	local X, Y = Library:GetTextBounds(InfoStr, Library.Font, 14);
@@ -411,8 +411,7 @@ end;
 
 function Library:MouseIsOverOpenedFrame()
 	for Frame, _ in next, Library.OpenedFrames do
-		local AbsPos = AbsToGui(Frame.AbsolutePosition);
-		local AbsSize = Frame.AbsoluteSize;
+		local AbsPos, AbsSize = Frame.AbsolutePosition, Frame.AbsoluteSize;
 
 		if Mouse.X >= AbsPos.X and Mouse.X <= AbsPos.X + AbsSize.X
 			and Mouse.Y >= AbsPos.Y and Mouse.Y <= AbsPos.Y + AbsSize.Y then
@@ -423,8 +422,7 @@ function Library:MouseIsOverOpenedFrame()
 end;
 
 function Library:IsMouseOverFrame(Frame)
-	local AbsPos = AbsToGui(Frame.AbsolutePosition);
-	local AbsSize = Frame.AbsoluteSize;
+	local AbsPos, AbsSize = Frame.AbsolutePosition, Frame.AbsoluteSize;
 
 	if Mouse.X >= AbsPos.X and Mouse.X <= AbsPos.X + AbsSize.X
 		and Mouse.Y >= AbsPos.Y and Mouse.Y <= AbsPos.Y + AbsSize.Y then
@@ -589,10 +587,9 @@ function Library:AddContextMenu(DisplayFrame, hitbox)
 	});
 
 	local function updateMenuPosition()
-		local _p = AbsToGui(DisplayFrame.AbsolutePosition);
 		ContextMenu.Container.Position = UDim2.fromOffset(
-			_p.X + DisplayFrame.AbsoluteSize.X + 4,
-			_p.Y + 1
+			(DisplayFrame.AbsolutePosition.X + DisplayFrame.AbsoluteSize.X) + 4,
+			DisplayFrame.AbsolutePosition.Y + 1
 		)
 	end
 
@@ -762,7 +759,7 @@ do
 			Name = 'Color';
 			BackgroundColor3 = Color3.new(1, 1, 1);
 			BorderColor3 = Color3.new(0, 0, 0);
-			Position = UDim2.fromOffset(AbsToGui(DisplayFrame.AbsolutePosition).X, AbsToGui(DisplayFrame.AbsolutePosition).Y + 18),
+			Position = UDim2.fromOffset(DisplayFrame.AbsolutePosition.X, DisplayFrame.AbsolutePosition.Y + 18),
 			Size = UDim2.fromOffset(230, Info.Transparency and 271 or 253);
 			Visible = false;
 			ZIndex = 15;
@@ -770,8 +767,7 @@ do
 		});
 
 		DisplayFrame:GetPropertyChangedSignal('AbsolutePosition'):Connect(function()
-			local _p = AbsToGui(DisplayFrame.AbsolutePosition);
-			PickerFrameOuter.Position = UDim2.fromOffset(_p.X, _p.Y + 18);
+			PickerFrameOuter.Position = UDim2.fromOffset(DisplayFrame.AbsolutePosition.X, DisplayFrame.AbsolutePosition.Y + 18);
 		end)
 
 		local PickerFrameInner = Library:Create('Frame', {
@@ -1220,8 +1216,7 @@ do
 			if (not _visible) then
 				return;
 			end;
-			local AbsPos = AbsToGui(PickerFrameOuter.AbsolutePosition);
-			local AbsSize = PickerFrameOuter.AbsoluteSize;
+			local AbsPos, AbsSize = PickerFrameOuter.AbsolutePosition, PickerFrameOuter.AbsoluteSize;
 			if (Mouse.X < AbsPos.X or Mouse.X > AbsPos.X + AbsSize.X or Mouse.Y < (AbsPos.Y - 20 - 1) or Mouse.Y > AbsPos.Y + AbsSize.Y) then
 				ColorPicker:Hide();
 			end;
@@ -1306,7 +1301,7 @@ do
 
 		local ModeSelectOuter = Library:Create('Frame', {
 			BorderColor3 = Color3.new(0, 0, 0);
-			Position = UDim2.fromOffset(AbsToGui(ToggleLabel.AbsolutePosition).X + ToggleLabel.AbsoluteSize.X + 4, AbsToGui(ToggleLabel.AbsolutePosition).Y + 1);
+			Position = UDim2.fromOffset(ToggleLabel.AbsolutePosition.X + ToggleLabel.AbsoluteSize.X + 4, ToggleLabel.AbsolutePosition.Y + 1);
 			Size = UDim2.new(0, 60, 0, 45 + 2);
 			Visible = false;
 			ZIndex = 14;
@@ -1314,8 +1309,7 @@ do
 		});
 
 		ToggleLabel:GetPropertyChangedSignal('AbsolutePosition'):Connect(function()
-			local _mp = AbsToGui(ToggleLabel.AbsolutePosition);
-			ModeSelectOuter.Position = UDim2.fromOffset(_mp.X + ToggleLabel.AbsoluteSize.X + 4, _mp.Y + 1);
+			ModeSelectOuter.Position = UDim2.fromOffset(ToggleLabel.AbsolutePosition.X + ToggleLabel.AbsoluteSize.X + 4, ToggleLabel.AbsolutePosition.Y + 1);
 		end);
 
 		local ModeSelectInner = Library:Create('Frame', {
@@ -2420,9 +2414,9 @@ do
 	function Funcs:AddSlider(Idx, Info, SliderParent)
 		assert(Info.Default, 'AddSlider: Missing default value.');
 		assert(Info.Text, 'AddSlider: Missing slider text.');
-		assert(Info.Min ~= nil, 'AddSlider: Missing minimum value.');
+		assert(Info.Min, 'AddSlider: Missing minimum value.');
 		assert(Info.Max, 'AddSlider: Missing maximum value.');
-		assert(Info.Rounding ~= nil, 'AddSlider: Missing rounding value.');
+		assert(Info.Rounding, 'AddSlider: Missing rounding value.');
 
 		local Blanks = { };
 		local Slider = {
@@ -2835,8 +2829,7 @@ do
 		});
 
 		local function RecalculateListPosition()
-			local _dp = AbsToGui(DropdownOuter.AbsolutePosition);
-			ListOuter.Position = UDim2.fromOffset(_dp.X, _dp.Y + DropdownOuter.Size.Y.Offset + 1);
+			ListOuter.Position = UDim2.fromOffset(DropdownOuter.AbsolutePosition.X, DropdownOuter.AbsolutePosition.Y + DropdownOuter.Size.Y.Offset + 1);
 		end;
 
 		local function RecalculateListSize(YSize)
@@ -3129,8 +3122,7 @@ do
 			if (not _visible) then
 				return;
 			end;
-			local AbsPos = AbsToGui(ListOuter.AbsolutePosition);
-			local AbsSize = ListOuter.AbsoluteSize;
+			local AbsPos, AbsSize = ListOuter.AbsolutePosition, ListOuter.AbsoluteSize;
 			if Mouse.X < AbsPos.X or Mouse.X > AbsPos.X + AbsSize.X
 				or Mouse.Y < (AbsPos.Y - 20 - 1) or Mouse.Y > AbsPos.Y + AbsSize.Y then
 
@@ -3626,7 +3618,7 @@ function Library:CreatePopout(Config)
 	if typeof(Config.Position) ~= 'UDim2' then Config.Position = UDim2.fromOffset(175, 50) end;
 
 
-	--if typeof(Config.Size) ~= 'UDim2' then Config.Size = UDim2.fromOffset(750, 600) end;
+	--if typeof(Config.Size) ~= 'UDim2' then Config.Size = UDim2.fromOffset(550, 600) end;
 
 	if Config.Center then
 		Config.AnchorPoint = Vector2.new(0.5, 0.5);
@@ -3645,6 +3637,8 @@ function Library:CreatePopout(Config)
 		ZIndex = 1;
 		Parent = ScreenGui;
 	});
+
+	Library:MakeDraggableOutline(Outer, 25);
 
 	local Inner = Library:Create('Frame', {
 		BackgroundColor3 = Library.MainColor;
@@ -3669,8 +3663,6 @@ function Library:CreatePopout(Config)
 		ZIndex = 1;
 		Parent = Inner;
 	});
-
-	Library:MakeDraggableOutline(WindowLabel, Outer);
 
 	local VersionLabel = Library:CreateLabel({
 		Position = UDim2.new(0, -8, 0, 0);
@@ -3874,12 +3866,8 @@ function Library:CreateWindow(...)
 	if typeof(Config.Size) ~= 'UDim2' then Config.Size = UDim2.fromOffset(750, 600) end
 
 	if Config.Center then
-		local vp = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1280, 720);
-		Config.AnchorPoint = Vector2.zero;
-		Config.Position = UDim2.fromOffset(
-			math.floor((vp.X - Config.Size.X.Offset) / 2),
-			math.floor((vp.Y - Config.Size.Y.Offset) / 2)
-		);
+		Config.AnchorPoint = Vector2.new(0.5, 0.5)
+		Config.Position = UDim2.fromScale(0.5, 0.5)
 	end
 
 	Library.UISize = Config.Size;
@@ -3898,6 +3886,8 @@ function Library:CreateWindow(...)
 		ZIndex = 1;
 		Parent = ScreenGui;
 	});
+
+	Library:MakeDraggableOutline(Outer, 25);
 
 	local ScrollFrames = {};
 
@@ -3935,8 +3925,6 @@ function Library:CreateWindow(...)
 		Parent = Inner;
 	});
 
-	Library:MakeDraggableOutline(WindowLabel, Outer);
-
 	--local VersionLabel = Library:CreateLabel({
 	--	Position = UDim2.new(0, -8, 0, 0);
 	--	Size = UDim2.new(1, 0, 0, 25);
@@ -3961,71 +3949,6 @@ function Library:CreateWindow(...)
 		ZIndex = 1;
 		Parent = Inner;
 	});
-
-	-- FadingTitle: per-letter labels that cycle through Library.FadeColor edges-inward.
-	-- Set Config.FadingTitle=true and Library.FadeColor to any Color3.
-	if Config.FadingTitle and Config.Title and #Config.Title > 0 then
-		WindowLabel.Text = '';
-		local _letters = {};
-		local function _buildLetters()
-			for _, l in ipairs(_letters) do pcall(function() l:Destroy() end) end;
-			table.clear(_letters);
-			local widths = {}; local totalW = 0;
-			for i = 1, #Config.Title do
-				local w = Library:GetTextBounds(Config.Title:sub(i,i), Library.Font, 14);
-				widths[i] = w; totalW = totalW + w;
-			end;
-			local startX = math.floor((Inner.AbsoluteSize.X - totalW) / 2);
-			local curX = startX;
-			for i = 1, #Config.Title do
-				local lbl = Library:CreateLabel({
-					Position = UDim2.fromOffset(curX, 4);
-					Size = UDim2.fromOffset(widths[i] + 1, 18);
-					Text = Config.Title:sub(i,i);
-					TextXAlignment = Enum.TextXAlignment.Left;
-					TextSize = 14; ZIndex = 2; Parent = Inner;
-				});
-				_letters[i] = lbl; curX = curX + widths[i];
-			end;
-		end;
-		task.spawn(function()
-			while Inner.AbsoluteSize.X == 0 do task.wait() end;
-			_buildLetters();
-			Inner:GetPropertyChangedSignal('AbsoluteSize'):Connect(function() task.defer(_buildLetters) end);
-			local function edgesOrder(n)
-				local o = {};
-				for i = 1, math.ceil(n/2) do
-					table.insert(o, i);
-					if i ~= n-i+1 then table.insert(o, n-i+1) end;
-				end;
-				return o;
-			end;
-			local delay, ft, pause = 0.06, 0.18, 2.0;
-			while Inner.Parent do
-				local n = #_letters;
-				if n == 0 then task.wait(0.5); continue end;
-				local fc = Library.FadeColor or Library.AccentColor;
-				local ord = edgesOrder(n);
-				for _, i in ipairs(ord) do
-					if not Inner.Parent then break end;
-					if _letters[i] and _letters[i].Parent then
-						TweenService:Create(_letters[i], TweenInfo.new(ft, Enum.EasingStyle.Quad), { TextColor3 = fc }):Play();
-					end;
-					task.wait(delay);
-				end;
-				task.wait(ft);
-				local rev = {}; for j = #ord, 1, -1 do table.insert(rev, ord[j]) end;
-				for _, i in ipairs(rev) do
-					if not Inner.Parent then break end;
-					if _letters[i] and _letters[i].Parent then
-						TweenService:Create(_letters[i], TweenInfo.new(ft, Enum.EasingStyle.Quad), { TextColor3 = Library.FontColor }):Play();
-					end;
-					task.wait(delay);
-				end;
-				task.wait(ft + pause);
-			end;
-		end);
-	end;
 
 	local MainSectionOuter = Library:Create('Frame', {
 		BackgroundColor3 = Library.BackgroundColor;
@@ -4058,11 +3981,16 @@ function Library:CreateWindow(...)
 	-- vertical left sidebar for tabs
 	local SidebarWidth = 100;
 
-	local TabArea = Library:Create('Frame', {
+	local TabArea = Library:Create('ScrollingFrame', {
 		BackgroundColor3 = Library.BackgroundColor;
 		BorderColor3 = Library.OutlineColor;
 		Position = UDim2.new(0, 8, 0, 8);
 		Size = UDim2.new(0, SidebarWidth, 1, -16);
+		CanvasSize = UDim2.new(0, 0, 0, 0);
+		ScrollBarThickness = 2;
+		ScrollBarImageColor3 = Library.AccentColor;
+		TopImage = '';
+		BottomImage = '';
 		ZIndex = 1;
 		Parent = MainSectionInner;
 	});
@@ -4070,6 +3998,7 @@ function Library:CreateWindow(...)
 	Library:AddToRegistry(TabArea, {
 		BackgroundColor3 = 'BackgroundColor';
 		BorderColor3 = 'OutlineColor';
+		ScrollBarImageColor3 = 'AccentColor';
 	});
 
 	local TabListLayout = Library:Create('UIListLayout', {
@@ -4079,6 +4008,10 @@ function Library:CreateWindow(...)
 		HorizontalAlignment = Enum.HorizontalAlignment.Center;
 		Parent = TabArea;
 	});
+
+	TabListLayout:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(function()
+		TabArea.CanvasSize = UDim2.new(0, 0, 0, TabListLayout.AbsoluteContentSize.Y);
+	end);
 
 	local TabContainer = Library:Create('Frame', {
 		BackgroundColor3 = Library.MainColor;
@@ -4099,7 +4032,163 @@ function Library:CreateWindow(...)
 	end;
 
 
-	Library.FontNames = { 'code', 'gotham', 'gotham bold', 'roboto', 'roboto mono', 'source sans', 'ubuntu', 'arial' };
+	-- shared helper: build per-letter labels for text inside parentFrame
+	-- waits for real AbsoluteSize before positioning (fixes zero-size on first load)
+	local function buildLetterLabels(text, parentFrame, rightAlign)
+		local letters = {};
+		local function build()
+			for _, lbl in ipairs(letters) do pcall(function() lbl:Destroy() end) end;
+			table.clear(letters);
+			local totalW = 0;
+			local widths = {};
+			for i = 1, #text do
+				local w = Library:GetTextBounds(text:sub(i,i), Library.Font, 14);
+				table.insert(widths, w);
+				totalW = totalW + w;
+			end;
+			local frameW = parentFrame.AbsoluteSize.X;
+			local startX = rightAlign
+				and math.floor(frameW - totalW - 8)
+				or  math.floor((frameW - totalW) / 2);
+			local curX = startX;
+			for i = 1, #text do
+				local lbl = Library:CreateLabel({
+					Position       = UDim2.fromOffset(curX, 4);
+					Size           = UDim2.fromOffset(widths[i] + 1, 18);
+					Text           = text:sub(i,i);
+					TextXAlignment = Enum.TextXAlignment.Left;
+					TextSize       = 14;
+					ZIndex         = 2;
+					Parent         = parentFrame;
+				});
+				table.insert(letters, lbl);
+				curX = curX + widths[i];
+			end;
+		end;
+		task.spawn(function()
+			-- wait until AbsoluteSize is real (gui may not be visible yet on first frame)
+			while parentFrame.AbsoluteSize.X == 0 do task.wait() end;
+			build();
+			parentFrame:GetPropertyChangedSignal('AbsoluteSize'):Connect(function()
+				task.defer(build);
+			end);
+		end);
+		return letters;
+	end;
+
+	-- shared helper: build edges-inward index order for n letters
+	local function edgesOrder(n)
+		local o = {};
+		for i = 1, math.ceil(n / 2) do
+			table.insert(o, i);
+			if i ~= n - i + 1 then table.insert(o, n - i + 1) end;
+		end;
+		return o;
+	end;
+
+	-- ColoredTitle: letters tween to FadeColor edges-inward then back to FontColor
+	if Config.ColoredTitle and Config.Title and #Config.Title > 0 then
+		WindowLabel.Text = '';
+		local letters = buildLetterLabels(Config.Title, Inner, false);
+		task.spawn(function()
+			while #letters == 0 do task.wait() end;
+			local delay = 0.07; local ft = 0.2; local pause = 1.8;
+			while Inner.Parent do
+				local n = #letters;
+				if n == 0 then task.wait(0.5); continue end;
+				local fc = Library.FadeColor or Color3.new(0,0,0);
+				local ord = edgesOrder(n);
+				for _, i in ipairs(ord) do
+					if not Inner.Parent then break end;
+					if letters[i] and letters[i].Parent then
+						TweenService:Create(letters[i], TweenInfo.new(ft), { TextColor3 = fc }):Play();
+					end;
+					task.wait(delay);
+				end;
+				task.wait(ft);
+				local rev = {}; for j = #ord, 1, -1 do table.insert(rev, ord[j]) end;
+				for _, i in ipairs(rev) do
+					if not Inner.Parent then break end;
+					if letters[i] and letters[i].Parent then
+						TweenService:Create(letters[i], TweenInfo.new(ft), { TextColor3 = Library.FontColor }):Play();
+					end;
+					task.wait(delay);
+				end;
+				task.wait(ft + pause);
+			end;
+		end);
+	end;
+
+	-- ColoredVersion: same color tween on version string, right-aligned
+	if Config.ColoredVersion and Config.Version and #tostring(Config.Version) > 0 then
+		VersionLabel.Text = '';
+		local ver = tostring(Config.Version);
+		local letters = buildLetterLabels(ver, Inner, true);
+		task.spawn(function()
+			while #letters == 0 do task.wait() end;
+			local delay = 0.07; local ft = 0.2; local pause = 1.8;
+			while Inner.Parent do
+				local n = #letters;
+				if n == 0 then task.wait(0.5); continue end;
+				local fc = Library.FadeColor or Color3.new(0,0,0);
+				local ord = edgesOrder(n);
+				for _, i in ipairs(ord) do
+					if not Inner.Parent then break end;
+					if letters[i] and letters[i].Parent then
+						TweenService:Create(letters[i], TweenInfo.new(ft), { TextColor3 = fc }):Play();
+					end;
+					task.wait(delay);
+				end;
+				task.wait(ft);
+				local rev = {}; for j = #ord, 1, -1 do table.insert(rev, ord[j]) end;
+				for _, i in ipairs(rev) do
+					if not Inner.Parent then break end;
+					if letters[i] and letters[i].Parent then
+						TweenService:Create(letters[i], TweenInfo.new(ft), { TextColor3 = Library.FontColor }):Play();
+					end;
+					task.wait(delay);
+				end;
+				task.wait(ft + pause);
+			end;
+		end);
+	end;
+
+	-- FadingName: letters go invisible edges-inward then reappear center-outward
+	if Config.FadingName and Config.Title and #Config.Title > 0 then
+		if not Config.ColoredTitle then WindowLabel.Text = '' end;
+		local letters = buildLetterLabels(Config.Title, Inner, false);
+		task.spawn(function()
+			while #letters == 0 do task.wait() end;
+			local delay = 0.07; local ft = 0.18; local pause = 1.8;
+			while Inner.Parent do
+				local n = #letters;
+				if n == 0 then task.wait(0.5); continue end;
+				local ord = edgesOrder(n);
+				for _, i in ipairs(ord) do
+					if not Inner.Parent then break end;
+					if letters[i] and letters[i].Parent then
+						TweenService:Create(letters[i], TweenInfo.new(ft), { TextTransparency = 1 }):Play();
+					end;
+					task.wait(delay);
+				end;
+				task.wait(ft);
+				local rev = {}; for j = #ord, 1, -1 do table.insert(rev, ord[j]) end;
+				for _, i in ipairs(rev) do
+					if not Inner.Parent then break end;
+					if letters[i] and letters[i].Parent then
+						TweenService:Create(letters[i], TweenInfo.new(ft), { TextTransparency = 0 }):Play();
+					end;
+					task.wait(delay);
+				end;
+				task.wait(ft + pause);
+			end;
+		end);
+	end;
+
+
+
+
+
 
 	function Window:AddTab(Name)
 
@@ -4599,24 +4688,14 @@ function Library:CreateWindow(...)
 			Outer.Visible = true;
 			local guiservice = game:GetService("GuiService");
 			task.spawn(function()
-				-- TODO: optimize cursor fade to be only 2 lines
 				local State = InputService.MouseIconEnabled;
-				--local Cursor = Drawing.new('Triangle');
-				--Cursor.Thickness = 1;
-				--Cursor.Filled = true;
-				--Cursor.Visible = true;
-
-				--local CursorOutline = Drawing.new('Triangle');
-				--CursorOutline.Thickness = 1;
-				--CursorOutline.Filled = false;
-				--CursorOutline.Color = Color3.new(0, 0, 0);
-				--CursorOutline.Visible = true;
-
 				local Cursor = Instance.new("ImageLabel", ScreenGui);
 				Cursor.Image = "http://www.roblox.com/asset/?id=4292970642";
 				Cursor.BackgroundTransparency = 1;
 				Cursor.ImageTransparency = 1;
 				Cursor.ZIndex = 100;
+				Cursor.Size = UDim2.fromOffset(17, 17);
+				Cursor.Rotation = -45;
 
 				local CursorOutline = Instance.new("ImageLabel", ScreenGui);
 				CursorOutline.Image = "http://www.roblox.com/asset/?id=4292970642";
@@ -4624,39 +4703,25 @@ function Library:CreateWindow(...)
 				CursorOutline.BackgroundTransparency = 1;
 				CursorOutline.ImageTransparency = 1;
 				CursorOutline.ZIndex = 99;
+				CursorOutline.Size = UDim2.fromOffset(19, 19);
+				CursorOutline.Rotation = -45;
 
-				-- Ts for now
 				TweenService:Create(Cursor, TweenInfo.new(FadeTime, Enum.EasingStyle.Linear), { ImageTransparency = 0 }):Play();
 				TweenService:Create(CursorOutline, TweenInfo.new(FadeTime, Enum.EasingStyle.Linear), { ImageTransparency = 0 }):Play();
 
-				Cursor.Size, CursorOutline.Size = UDim2.fromOffset(17, 17),  UDim2.fromOffset(19, 19);
-				Cursor.Rotation, CursorOutline.Rotation = -45, -45;
 				while Toggled and ScreenGui.Parent do
 					InputService.MouseIconEnabled = false;
-
-					local udim = UDim2.fromOffset(Mouse.X, Mouse.Y);
-
+					local mPos = InputService:GetMouseLocation();
+					local udim = UDim2.fromOffset(mPos.X, mPos.Y - guiservice:GetGuiInset().Y - 1);
 					Cursor.ImageColor3 = Library.AccentColor;
 					Cursor.Position, CursorOutline.Position = udim, udim - UDim2.fromOffset(1, 1);
-
-					--Cursor.PointA = Vector2.new(mPos.X, mPos.Y);
-					--Cursor.PointB = Vector2.new(mPos.X + 16, mPos.Y + 6);
-					--Cursor.PointC = Vector2.new(mPos.X + 6, mPos.Y + 16);
-
-					--CursorOutline.PointA = Cursor.PointA;
-					--CursorOutline.PointB = Cursor.PointB;
-					--CursorOutline.PointC = Cursor.PointC;
-
 					RenderStepped:Wait();
 				end;
 
 				InputService.MouseIconEnabled = State;
-
 				TweenService:Create(Cursor, TweenInfo.new(FadeTime, Enum.EasingStyle.Linear), { ImageTransparency = 1 }):Play();
 				TweenService:Create(CursorOutline, TweenInfo.new(FadeTime, Enum.EasingStyle.Linear), { ImageTransparency = 1 }):Play();
-				
 				task.wait(FadeTime);
-
 				Cursor:Destroy();
 				CursorOutline:Destroy();
 			end);
@@ -4664,6 +4729,34 @@ function Library:CreateWindow(...)
 
 		if (not Config.DontFade) then
 			Outer.Parent = ScreenGui;
+
+			if Library.FadingAnimation then
+				if Toggled then
+					-- grow from small to full size, fade in
+					local fullSize = Outer.Size;
+					local cx = Outer.Position.X.Offset + Outer.AbsoluteSize.X / 2;
+					local cy = Outer.Position.Y.Offset + Outer.AbsoluteSize.Y / 2;
+					Outer.Size = UDim2.fromOffset(fullSize.X.Offset * 0.85, fullSize.Y.Offset * 0.85);
+					Outer.Position = UDim2.fromOffset(
+						cx - Outer.AbsoluteSize.X / 2,
+						cy - Outer.AbsoluteSize.Y / 2
+					);
+					TweenService:Create(Outer, TweenInfo.new(FadeTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+						Size = fullSize;
+					}):Play();
+				else
+					-- shrink to 85%, then hide
+					local fullSize = Outer.Size;
+					local cx = Outer.Position.X.Offset + Outer.AbsoluteSize.X / 2;
+					local cy = Outer.Position.Y.Offset + Outer.AbsoluteSize.Y / 2;
+					local shrinkW = fullSize.X.Offset * 0.85;
+					local shrinkH = fullSize.Y.Offset * 0.85;
+					TweenService:Create(Outer, TweenInfo.new(FadeTime, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+						Size     = UDim2.fromOffset(shrinkW, shrinkH);
+						Position = UDim2.fromOffset(cx - shrinkW / 2, cy - shrinkH / 2);
+					}):Play();
+				end;
+			end;
 
 			for _, Desc in next, Outer:GetDescendants() do
 				local Properties = {};
