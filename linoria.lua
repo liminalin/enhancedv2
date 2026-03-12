@@ -4523,26 +4523,15 @@ function Library:CreateWindow(...)
 			-- A bit scuffed, but if we're going from not toggled -> toggled we want to show the frame immediately so that the fade is visible.
 			Outer.Visible = true;
 			local guiservice = game:GetService("GuiService");
-			if Library.LinoriaCursorEnabled then
 			task.spawn(function()
-				-- TODO: optimize cursor fade to be only 2 lines
 				local State = InputService.MouseIconEnabled;
-				--local Cursor = Drawing.new('Triangle');
-				--Cursor.Thickness = 1;
-				--Cursor.Filled = true;
-				--Cursor.Visible = true;
-
-				--local CursorOutline = Drawing.new('Triangle');
-				--CursorOutline.Thickness = 1;
-				--CursorOutline.Filled = false;
-				--CursorOutline.Color = Color3.new(0, 0, 0);
-				--CursorOutline.Visible = true;
-
 				local Cursor = Instance.new("ImageLabel", ScreenGui);
 				Cursor.Image = "http://www.roblox.com/asset/?id=4292970642";
 				Cursor.BackgroundTransparency = 1;
 				Cursor.ImageTransparency = 1;
 				Cursor.ZIndex = 100;
+				Cursor.Size = UDim2.fromOffset(17, 17);
+				Cursor.Rotation = -45;
 
 				local CursorOutline = Instance.new("ImageLabel", ScreenGui);
 				CursorOutline.Image = "http://www.roblox.com/asset/?id=4292970642";
@@ -4550,44 +4539,45 @@ function Library:CreateWindow(...)
 				CursorOutline.BackgroundTransparency = 1;
 				CursorOutline.ImageTransparency = 1;
 				CursorOutline.ZIndex = 99;
+				CursorOutline.Size = UDim2.fromOffset(19, 19);
+				CursorOutline.Rotation = -45;
 
-				-- Ts for now
-				TweenService:Create(Cursor, TweenInfo.new(FadeTime, Enum.EasingStyle.Linear), { ImageTransparency = 0 }):Play();
-				TweenService:Create(CursorOutline, TweenInfo.new(FadeTime, Enum.EasingStyle.Linear), { ImageTransparency = 0 }):Play();
+				local cursorVisible = false;
 
-				Cursor.Size, CursorOutline.Size = UDim2.fromOffset(17, 17),  UDim2.fromOffset(19, 19);
-				Cursor.Rotation, CursorOutline.Rotation = -45, -45;
-				while Toggled and ScreenGui.Parent and Library.LinoriaCursorEnabled do
-					InputService.MouseIconEnabled = false;
+				local function showCursor()
+					if cursorVisible then return end;
+					cursorVisible = true;
+					TweenService:Create(Cursor, TweenInfo.new(FadeTime, Enum.EasingStyle.Linear), { ImageTransparency = 0 }):Play();
+					TweenService:Create(CursorOutline, TweenInfo.new(FadeTime, Enum.EasingStyle.Linear), { ImageTransparency = 0 }):Play();
+				end;
 
-					local mPos = InputService:GetMouseLocation();
-					local udim = UDim2.fromOffset(mPos.X, mPos.Y - guiservice:GetGuiInset().Y - 1);
+				local function hideCursor()
+					if not cursorVisible then return end;
+					cursorVisible = false;
+					InputService.MouseIconEnabled = State;
+					TweenService:Create(Cursor, TweenInfo.new(FadeTime, Enum.EasingStyle.Linear), { ImageTransparency = 1 }):Play();
+					TweenService:Create(CursorOutline, TweenInfo.new(FadeTime, Enum.EasingStyle.Linear), { ImageTransparency = 1 }):Play();
+				end;
 
-					Cursor.ImageColor3 = Library.AccentColor;
-					Cursor.Position, CursorOutline.Position = udim, udim - UDim2.fromOffset(1, 1);
-
-					--Cursor.PointA = Vector2.new(mPos.X, mPos.Y);
-					--Cursor.PointB = Vector2.new(mPos.X + 16, mPos.Y + 6);
-					--Cursor.PointC = Vector2.new(mPos.X + 6, mPos.Y + 16);
-
-					--CursorOutline.PointA = Cursor.PointA;
-					--CursorOutline.PointB = Cursor.PointB;
-					--CursorOutline.PointC = Cursor.PointC;
-
+				while Toggled and ScreenGui.Parent do
+					if Library.LinoriaCursorEnabled then
+						showCursor();
+						InputService.MouseIconEnabled = false;
+						local mPos = InputService:GetMouseLocation();
+						local udim = UDim2.fromOffset(mPos.X, mPos.Y - guiservice:GetGuiInset().Y - 1);
+						Cursor.ImageColor3 = Library.AccentColor;
+						Cursor.Position, CursorOutline.Position = udim, udim - UDim2.fromOffset(1, 1);
+					else
+						hideCursor();
+					end;
 					RenderStepped:Wait();
 				end;
 
-				InputService.MouseIconEnabled = State;
-
-				TweenService:Create(Cursor, TweenInfo.new(FadeTime, Enum.EasingStyle.Linear), { ImageTransparency = 1 }):Play();
-				TweenService:Create(CursorOutline, TweenInfo.new(FadeTime, Enum.EasingStyle.Linear), { ImageTransparency = 1 }):Play();
-				
+				hideCursor();
 				task.wait(FadeTime);
-
 				Cursor:Destroy();
 				CursorOutline:Destroy();
 			end);
-			end; -- LinoriaCursorEnabled
 		end;
 
 		if (not Config.DontFade) then
