@@ -4734,7 +4734,7 @@ function Library:CreateWindow(...)
 
 			if Library.FadingAnimation then
 				if Toggled then
-					-- grow from small to full size
+					-- grow from 85% + fully transparent to full size + opaque
 					local fullW = Outer.AbsoluteSize.X;
 					local fullH = Outer.AbsoluteSize.Y;
 					local cx = Outer.AbsolutePosition.X + fullW / 2;
@@ -4744,12 +4744,24 @@ function Library:CreateWindow(...)
 					Outer.AnchorPoint = Vector2.new(0, 0);
 					Outer.Size = UDim2.fromOffset(smallW, smallH);
 					Outer.Position = UDim2.fromOffset(cx - smallW / 2, cy - smallH / 2);
+					-- set all descendants fully transparent before tweening in
+					for _, Desc in next, Outer:GetDescendants() do
+						if Desc:IsA('TextLabel') or Desc:IsA('TextBox') then
+							Desc.TextTransparency = 1;
+						elseif Desc:IsA('Frame') or Desc:IsA('ScrollingFrame') then
+							if Desc.BackgroundTransparency < 1 then Desc.BackgroundTransparency = 1 end;
+						elseif Desc:IsA('ImageLabel') then
+							Desc.ImageTransparency = 1; Desc.BackgroundTransparency = 1;
+						elseif Desc:IsA('UIStroke') then
+							Desc.Transparency = 1;
+						end;
+					end;
 					TweenService:Create(Outer, TweenInfo.new(FadeTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 						Size     = UDim2.fromOffset(fullW, fullH);
 						Position = UDim2.fromOffset(cx - fullW / 2, cy - fullH / 2);
 					}):Play();
 				else
-					-- shrink to 85%
+					-- shrink to 85% while fading out
 					local fullW = Outer.AbsoluteSize.X;
 					local fullH = Outer.AbsoluteSize.Y;
 					local cx = Outer.AbsolutePosition.X + fullW / 2;
