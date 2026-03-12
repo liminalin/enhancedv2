@@ -1342,7 +1342,7 @@ do
 			Parent = Library.KeybindContainer;
 		},  true);
 
-		local Modes = Info.Modes or { 'Always', 'Toggle', 'Hold' };
+		local Modes = Info.Modes or { 'Always', 'Toggle', 'Hold', 'Unbind' };
 		local ModeButtons = {};
 
 		--[[for Idx, Mode in next, Modes do
@@ -1396,23 +1396,40 @@ do
 		local buttons = { };
 		for index, mode in Modes do
 			local button;
-			button = contextmenu:AddOption(mode, function()
-				KeyPicker.Mode = mode;
-				button.TextColor3 = Library.AccentColor;
-				for mode, _button in buttons do
-					if (_button ~= button) then
-						_button.TextColor3 = mode == KeyPicker.Mode and Library.AccentColor or Library.FontColor;
+			if mode == 'Unbind' then
+				button = contextmenu:AddOption(mode, function()
+					-- Unbind is an action: reset key to None and revert mode to Toggle
+					KeyPicker.Value = 'None';
+					KeyPicker.Mode = 'Toggle';
+					KeyPicker.Toggled = false;
+					DisplayLabel.Text = 'None';
+					contextmenu:Hide();
+					for _mode, _button in buttons do
+						_button.TextColor3 = _mode == KeyPicker.Mode and Library.AccentColor or Library.FontColor;
 					end;
-				end;
-				Library:AttemptSave();
-				--Library.RegistryMap[Label].Properties.TextColor3 = 'AccentColor';
-				--ModeSelectOuter.Visible = false;
-			end);
-			button:GetPropertyChangedSignal("TextColor3"):Connect(function()
-				if (mode == KeyPicker.Mode) then
+					KeyPicker:Update();
+					Library:SafeCallback(KeyPicker.Changed, Enum.KeyCode.Unknown);
+					Library:AttemptSave();
+				end);
+			else
+				button = contextmenu:AddOption(mode, function()
+					KeyPicker.Mode = mode;
 					button.TextColor3 = Library.AccentColor;
-				else
-					button.TextColor3 = Library.FontColor;
+					for _mode, _button in buttons do
+						if (_button ~= button) then
+							_button.TextColor3 = _mode == KeyPicker.Mode and Library.AccentColor or Library.FontColor;
+						end;
+					end;
+					Library:AttemptSave();
+				end);
+			end;
+			button:GetPropertyChangedSignal("TextColor3"):Connect(function()
+				if mode ~= 'Unbind' then
+					if mode == KeyPicker.Mode then
+						button.TextColor3 = Library.AccentColor;
+					else
+						button.TextColor3 = Library.FontColor;
+					end;
 				end;
 			end);
 			buttons[mode] = button;
@@ -1425,7 +1442,9 @@ do
 		end)
 
 		for mode, button in buttons do
-			button.TextColor3 = mode == KeyPicker.Mode and Library.AccentColor or Library.FontColor;
+			if mode ~= 'Unbind' then
+				button.TextColor3 = mode == KeyPicker.Mode and Library.AccentColor or Library.FontColor;
+			end;
 		end;
 		local update = function(State)
 			local mode = KeyPicker.Mode;
