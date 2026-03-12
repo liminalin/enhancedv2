@@ -1418,16 +1418,6 @@ do
 			buttons[mode] = button;
 		end;
 
-		contextmenu:AddOption('Unbind', function()
-			KeyPicker.Value = 'None';
-			KeyPicker.Mode = 'Toggle';
-			KeyPicker.Toggled = false;
-			DisplayLabel.Text = 'None';
-			contextmenu:Hide();
-			KeyPicker:Update();
-			Library:AttemptSave();
-		end)
-
 		contextmenu:AddOption('Copy Flag', function()
 			pcall(setclipboard, KeyPicker.Idx)
 			task.wait(); Library:Notify('Copied flag to clipboard!', 2);
