@@ -528,6 +528,7 @@ function Library:Unload()
 	end
 
 	ScreenGui:Destroy()
+	DraggingGui:Destroy()
 end
 
 function Library:OnUnload(Callback)
