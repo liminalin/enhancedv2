@@ -61,8 +61,6 @@ local Library = {
 		};
 	]]
 
-	LinoriaCursorEnabled = true;
-
 	Signals = {};
 	ScreenGui = ScreenGui;
 };
@@ -4542,38 +4540,21 @@ function Library:CreateWindow(...)
 				CursorOutline.Size = UDim2.fromOffset(19, 19);
 				CursorOutline.Rotation = -45;
 
-				local cursorVisible = false;
-
-				local function showCursor()
-					if cursorVisible then return end;
-					cursorVisible = true;
-					TweenService:Create(Cursor, TweenInfo.new(FadeTime, Enum.EasingStyle.Linear), { ImageTransparency = 0 }):Play();
-					TweenService:Create(CursorOutline, TweenInfo.new(FadeTime, Enum.EasingStyle.Linear), { ImageTransparency = 0 }):Play();
-				end;
-
-				local function hideCursor()
-					if not cursorVisible then return end;
-					cursorVisible = false;
-					InputService.MouseIconEnabled = State;
-					TweenService:Create(Cursor, TweenInfo.new(FadeTime, Enum.EasingStyle.Linear), { ImageTransparency = 1 }):Play();
-					TweenService:Create(CursorOutline, TweenInfo.new(FadeTime, Enum.EasingStyle.Linear), { ImageTransparency = 1 }):Play();
-				end;
+				TweenService:Create(Cursor, TweenInfo.new(FadeTime, Enum.EasingStyle.Linear), { ImageTransparency = 0 }):Play();
+				TweenService:Create(CursorOutline, TweenInfo.new(FadeTime, Enum.EasingStyle.Linear), { ImageTransparency = 0 }):Play();
 
 				while Toggled and ScreenGui.Parent do
-					if Library.LinoriaCursorEnabled then
-						showCursor();
-						InputService.MouseIconEnabled = false;
-						local mPos = InputService:GetMouseLocation();
-						local udim = UDim2.fromOffset(mPos.X, mPos.Y - guiservice:GetGuiInset().Y - 1);
-						Cursor.ImageColor3 = Library.AccentColor;
-						Cursor.Position, CursorOutline.Position = udim, udim - UDim2.fromOffset(1, 1);
-					else
-						hideCursor();
-					end;
+					InputService.MouseIconEnabled = false;
+					local mPos = InputService:GetMouseLocation();
+					local udim = UDim2.fromOffset(mPos.X, mPos.Y - guiservice:GetGuiInset().Y - 1);
+					Cursor.ImageColor3 = Library.AccentColor;
+					Cursor.Position, CursorOutline.Position = udim, udim - UDim2.fromOffset(1, 1);
 					RenderStepped:Wait();
 				end;
 
-				hideCursor();
+				InputService.MouseIconEnabled = State;
+				TweenService:Create(Cursor, TweenInfo.new(FadeTime, Enum.EasingStyle.Linear), { ImageTransparency = 1 }):Play();
+				TweenService:Create(CursorOutline, TweenInfo.new(FadeTime, Enum.EasingStyle.Linear), { ImageTransparency = 1 }):Play();
 				task.wait(FadeTime);
 				Cursor:Destroy();
 				CursorOutline:Destroy();
