@@ -286,6 +286,8 @@ function Library:MakeResizable(Outer, OnResize)
 end;
 
 local DraggingGui = Instance.new("ScreenGui", gethui());
+DraggingGui.IgnoreGuiInset = true;
+DraggingGui.ZIndexBehavior = Enum.ZIndexBehavior.Global;
 function Library:MakeDraggableOutline(TitleBar, WindowOuter)
 	local Target = WindowOuter or TitleBar;
 	TitleBar.Active = true;
