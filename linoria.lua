@@ -513,90 +513,44 @@ function Library:GiveSignal(Signal)
 	table.insert(Library.Signals, Signal)
 end
 
--- watermark
-do
-	local WatermarkGui = Instance.new('ScreenGui');
-	WatermarkGui.Name = 'LibraryWatermark';
-	WatermarkGui.ResetOnSpawn = false;
-	WatermarkGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling;
-	pcall(function() WatermarkGui.IgnoreGuiInset = true end);
-	pcall(function() syn.protect_gui(WatermarkGui) end);
-	pcall(function() WatermarkGui.Parent = game:GetService('CoreGui') end);
-	if not WatermarkGui.Parent then WatermarkGui.Parent = game:GetService('Players').LocalPlayer:WaitForChild('PlayerGui') end;
+-- watermark state (hooks into the existing Library.Watermark frame set up later)
+Library.WatermarkEnabled = false;
+Library.WatermarkParts = {};  -- e.g. { ['game name']=true, ['executor']=true, ['utc date']=true }
 
-	local WatermarkFrame = Instance.new('Frame');
-	WatermarkFrame.BackgroundColor3 = Library.MainColor;
-	WatermarkFrame.BorderColor3 = Library.AccentColor;
-	WatermarkFrame.BorderSizePixel = 1;
-	WatermarkFrame.Position = UDim2.fromOffset(10, 10);
-	WatermarkFrame.AutomaticSize = Enum.AutomaticSize.XY;
-	WatermarkFrame.Visible = false;
-	WatermarkFrame.Parent = WatermarkGui;
-
-	local WatermarkLabel = Instance.new('TextLabel');
-	WatermarkLabel.BackgroundTransparency = 1;
-	WatermarkLabel.Font = Library.Font;
-	WatermarkLabel.TextColor3 = Library.FontColor;
-	WatermarkLabel.TextSize = 13;
-	WatermarkLabel.Text = 'CyanGen';
-	WatermarkLabel.AutomaticSize = Enum.AutomaticSize.XY;
-	WatermarkLabel.TextXAlignment = Enum.TextXAlignment.Left;
-	WatermarkLabel.Size = UDim2.fromOffset(0, 0);
-	WatermarkLabel.Parent = WatermarkFrame;
-
-	local WatermarkPadding = Instance.new('UIPadding');
-	WatermarkPadding.PaddingLeft = UDim.new(0, 6);
-	WatermarkPadding.PaddingRight = UDim.new(0, 6);
-	WatermarkPadding.PaddingTop = UDim.new(0, 3);
-	WatermarkPadding.PaddingBottom = UDim.new(0, 3);
-	WatermarkPadding.Parent = WatermarkFrame;
-
-	Library.Watermark = {
-		Enabled = false;
-		Parts = {};  -- which parts to show: 'game name', 'executor', 'utc date'
-		Frame = WatermarkFrame;
-		Label = WatermarkLabel;
-	};
-
-	local function updateWatermark()
-		if not Library.Watermark.Enabled then
-			WatermarkFrame.Visible = false;
-			return;
-		end;
-		WatermarkFrame.Visible = true;
-		local parts = { 'CyanGen' };
-		local enabled = Library.Watermark.Parts;
-		if enabled['game name'] then
-			local ok, name = pcall(function() return game:GetService('MarketplaceService'):GetProductInfo(game.PlaceId).Name end);
-			table.insert(parts, ok and name or tostring(game.PlaceId));
-		end;
-		if enabled['executor'] then
-			local exec = 'unknown';
-			if identifyexecutor then pcall(function() exec = identifyexecutor() end) end;
-			table.insert(parts, exec);
-		end;
-		if enabled['utc date'] then
-			table.insert(parts, os.date('!%Y-%m-%d %H:%M UTC'));
-		end;
-		WatermarkLabel.Text = table.concat(parts, ' - ');
-		WatermarkLabel.Font = Library.Font;
-		WatermarkLabel.TextColor3 = Library.FontColor;
-		WatermarkFrame.BackgroundColor3 = Library.MainColor;
-		WatermarkFrame.BorderColor3 = Library.AccentColor;
+function Library:UpdateWatermark()
+	local frame = Library.Watermark;
+	local label = Library.WatermarkText;
+	if not frame or not label then return end;
+	if not Library.WatermarkEnabled then
+		Library:SetWatermarkVisibility(false);
+		return;
 	end;
-
-	Library.UpdateWatermark = updateWatermark;
-
-	-- update every second for utc date
-	task.spawn(function()
-		while WatermarkGui.Parent do
-			if Library.Watermark.Enabled then
-				updateWatermark();
-			end;
-			task.wait(1);
-		end;
-	end);
+	Library:SetWatermarkVisibility(true);
+	local parts = { 'CyanGen' };
+	if Library.WatermarkParts['game name'] then
+		local ok, name = pcall(function() return game:GetService('MarketplaceService'):GetProductInfo(game.PlaceId).Name end);
+		table.insert(parts, ok and name or tostring(game.PlaceId));
+	end;
+	if Library.WatermarkParts['executor'] then
+		local exec = 'unknown';
+		if identifyexecutor then pcall(function() exec = identifyexecutor() end) end;
+		table.insert(parts, exec);
+	end;
+	if Library.WatermarkParts['utc date'] then
+		table.insert(parts, os.date('!%Y-%m-%d %H:%M UTC'));
+	end;
+	label.Text = table.concat(parts, ' - ');
 end;
+
+-- update every second for utc date clock
+task.spawn(function()
+	while Library.ScreenGui do
+		task.wait(1);
+		if Library.WatermarkEnabled then
+			Library:UpdateWatermark();
+		end;
+	end;
+end);
 
 function Library:Unload()
 	-- Unload all of the signals
