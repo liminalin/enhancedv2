@@ -279,7 +279,6 @@ function Library:MakeResizable(Outer, OnResize)
 end;
 
 local DraggingGui = Instance.new("ScreenGui", gethui());
-Library.DraggingGui = DraggingGui;
 function Library:MakeDraggableOutline(Instance, Cutoff)
 	Instance.Active = true;
 
@@ -709,8 +708,7 @@ do
 		local ToggleLabel = self.TextLabel;
 		-- local Container = self.Container;
 
-		assert(Info.Default ~= nil or true, 'AddColorPicker: Missing default value.');
-		Info.Default = Info.Default or Color3.new(1, 1, 1);
+		assert(Info.Default, 'AddColorPicker: Missing default value.');
 
 		local ColorPicker = {
 			Value = Info.Default;
@@ -1343,7 +1341,7 @@ do
 			Parent = Library.KeybindContainer;
 		},  true);
 
-		local Modes = Info.Modes or { 'Toggle' };
+		local Modes = Info.Modes or { 'Always', 'Toggle', 'Hold' };
 		local ModeButtons = {};
 
 		--[[for Idx, Mode in next, Modes do
@@ -1536,8 +1534,8 @@ do
 				KeyPicker.Override = false;
 				KeyPicker.Toggled = false;
 			end;
-			if ParentObj.Type == 'Toggle' then
-				ParentObj:SetValue(KeyPicker.Toggled)
+			if ParentObj.Type == 'Toggle' and KeyPicker.SyncToggleState then
+				ParentObj:SetValue(not ParentObj.Value)
 			end
 
 			Library:SafeCallback(KeyPicker.Callback, KeyPicker.Toggled)
