@@ -8,8 +8,10 @@ local TweenService = game:GetService('TweenService');
 local RenderStepped = RunService.RenderStepped;
 local LocalPlayer = Players.LocalPlayer;
 local _RawMouse = cloneref(LocalPlayer:GetMouse());
--- Mouse.X/Y must match ScreenGui coords. With IgnoreGuiInset=true the ScreenGui
--- origin is (0,0) so we use InputService:GetMouseLocation() which returns raw screen pos.
+-- With IgnoreGuiInset=true the ScreenGui origin is the actual screen top-left (0,0).
+-- GetMouseLocation() also returns from screen top-left, so they match exactly.
+-- We do NOT subtract GuiInset here. The old Mouse from GetMouse() had inset baked in
+-- which caused tooltip/drag offsets after the GUI was moved.
 local Mouse = setmetatable({}, {
 	__index = function(_, k)
 		if k == 'X' then return InputService:GetMouseLocation().X end;
@@ -3629,8 +3631,6 @@ function Library:CreatePopout(Config)
 		Parent = ScreenGui;
 	});
 
-	Library:MakeDraggableOutline(Outer, 25); -- replaced below
-
 	local Inner = Library:Create('Frame', {
 		BackgroundColor3 = Library.MainColor;
 		BorderColor3 = Library.AccentColor;
@@ -3883,8 +3883,6 @@ function Library:CreateWindow(...)
 		ZIndex = 1;
 		Parent = ScreenGui;
 	});
-
-	Library:MakeDraggableOutline(Outer, 25); -- replaced below
 
 	local ScrollFrames = {};
 
@@ -4617,9 +4615,7 @@ function Library:CreateWindow(...)
 
 				while Toggled and ScreenGui.Parent do
 					InputService.MouseIconEnabled = false;
-					local mPos = InputService:GetMouseLocation();
-					-- IgnoreGuiInset=true: ScreenGui origin is (0,0), use raw position
-					local udim = UDim2.fromOffset(mPos.X, mPos.Y);
+					local udim = UDim2.fromOffset(Mouse.X, Mouse.Y);
 					Cursor.ImageColor3 = Library.AccentColor;
 					Cursor.Position = udim;
 					CursorOutline.Position = udim - UDim2.fromOffset(1, 1);
