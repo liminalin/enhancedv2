@@ -1342,7 +1342,7 @@ do
 			Parent = Library.KeybindContainer;
 		},  true);
 
-		local Modes = Info.Modes or { 'Always', 'Toggle', 'Hold' };
+		local Modes = Info.Modes or { 'Toggle' };
 		local ModeButtons = {};
 
 		--[[for Idx, Mode in next, Modes do
