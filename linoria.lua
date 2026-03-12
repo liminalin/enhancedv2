@@ -61,10 +61,6 @@ local Library = {
 		};
 	]]
 
-	FadeColor = Color3.new(0, 0, 0);
-
-	FadingAnimation = true;
-
 	Signals = {};
 	ScreenGui = ScreenGui;
 };
@@ -186,38 +182,32 @@ function Library:CreateLabel(Properties, IsHud)
 	return Library:Create(_Instance, Properties);
 end;
 
-function Library:MakeDraggable(TitleBar, WindowOuter)
-	-- WindowOuter is the frame to actually move; TitleBar is just the hit zone.
-	-- If WindowOuter is omitted, the element moves itself (watermark, keypicker).
-	local Target = WindowOuter or TitleBar;
-	TitleBar.Active = true;
+function Library:MakeDraggable(Instance, Cutoff)
+	Instance.Active = true;
 
-	TitleBar.InputBegan:Connect(function(Input)
-		if Input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end;
+	Instance.InputBegan:Connect(function(Input)
+		if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+			local ObjPos = Vector2.new(
+				Mouse.X - Instance.AbsolutePosition.X,
+				Mouse.Y - Instance.AbsolutePosition.Y
+			);
 
-		local ap = Target.AbsolutePosition;
-		local ObjPos = Vector2.new(Mouse.X - ap.X, Mouse.Y - ap.Y);
+			if ObjPos.Y > (Cutoff or 40) then
+				return;
+			end;
 
-		local frame = Library:Create("Frame", {
-			Parent               = DraggingGui;
-			BackgroundTransparency = 1;
-			Size                 = Target.Size;
-			Position             = Target.Position;
-		});
-		local uistroke = Library:Create("UIStroke", {
-			Parent = frame;
-			Color  = Library.AccentColor or Color3.new(0, 0, 0);
-		});
+			while InputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) do
+				Instance.Position = UDim2.new(
+					0,
+					Mouse.X - ObjPos.X + (Instance.Size.X.Offset * Instance.AnchorPoint.X),
+					0,
+					Mouse.Y - ObjPos.Y + (Instance.Size.Y.Offset * Instance.AnchorPoint.Y)
+				);
 
-		while InputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) do
-			frame.Position = UDim2.fromOffset(Mouse.X - ObjPos.X, Mouse.Y - ObjPos.Y);
-			uistroke.Color = Library.AccentColor or Color3.new(0, 0, 0);
-			RenderStepped:Wait();
+				RenderStepped:Wait();
+			end;
 		end;
-
-		Target.Position = UDim2.fromOffset(Mouse.X - ObjPos.X, Mouse.Y - ObjPos.Y);
-		frame:Destroy();
-	end);
+	end)
 end;
 
 function Library:MakeResizable(Outer, OnResize)
@@ -285,32 +275,21 @@ function Library:MakeResizable(Outer, OnResize)
 end;
 
 local DraggingGui = Instance.new("ScreenGui", gethui());
-function Library:MakeDraggableOutline(Instance, Cutoff)
-	Instance.Active = true;
+function Library:MakeDraggableOutline(TitleBar, WindowOuter)
+	local Target = WindowOuter or TitleBar;
+	TitleBar.Active = true;
 
-	InputService.InputBegan:Connect(function(Input, Processed)
-		if Processed then return end;
+	TitleBar.InputBegan:Connect(function(Input)
 		if Input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end;
 
-		-- check mouse is inside the window at all
-		local ap = Instance.AbsolutePosition;
-		local as = Instance.AbsoluteSize;
-		local mx, my = Mouse.X, Mouse.Y;
-		if mx < ap.X or mx > ap.X + as.X then return end;
-		if my < ap.Y or my > ap.Y + as.Y then return end;
-
-		-- only drag from the title bar strip (top Cutoff px)
-		local relY = my - ap.Y;
-		if relY > (Cutoff or 25) then return end;
-
-		local ObjPos = Vector2.new(mx - ap.X, my - ap.Y);
+		local ap = Target.AbsolutePosition;
+		local ObjPos = Vector2.new(Mouse.X - ap.X, Mouse.Y - ap.Y);
 
 		local frame = Library:Create("Frame", {
 			Parent = DraggingGui;
-			AnchorPoint = Instance.AnchorPoint;
 			BackgroundTransparency = 1;
-			Size = Instance.Size;
-			Position = Instance.Position;
+			Size = Target.Size;
+			Position = Target.Position;
 		});
 		local uistroke = Library:Create("UIStroke", {
 			Parent = frame;
@@ -318,18 +297,12 @@ function Library:MakeDraggableOutline(Instance, Cutoff)
 		});
 
 		while InputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) do
-			frame.Position = UDim2.fromOffset(
-				Mouse.X - ObjPos.X,
-				Mouse.Y - ObjPos.Y
-			);
+			frame.Position = UDim2.fromOffset(Mouse.X - ObjPos.X, Mouse.Y - ObjPos.Y);
 			uistroke.Color = Library.AccentColor or Color3.new(0, 0, 0);
 			RenderStepped:Wait();
 		end;
 
-		Instance.Position = UDim2.fromOffset(
-			Mouse.X - ObjPos.X,
-			Mouse.Y - ObjPos.Y
-		);
+		Target.Position = UDim2.fromOffset(Mouse.X - ObjPos.X, Mouse.Y - ObjPos.Y);
 		frame:Destroy();
 	end);
 end;
@@ -3646,7 +3619,7 @@ function Library:CreatePopout(Config)
 		Parent = ScreenGui;
 	});
 
-	Library:MakeDraggableOutline(Outer, 25); -- REMOVED: replaced by WindowLabel drag below
+	Library:MakeDraggableOutline(Outer, 25); -- replaced below
 
 	local Inner = Library:Create('Frame', {
 		BackgroundColor3 = Library.MainColor;
@@ -3672,8 +3645,17 @@ function Library:CreatePopout(Config)
 		Parent = Inner;
 	});
 
-	-- drag the whole window by clicking the title bar label only
-	Library:MakeDraggable(WindowLabel, Outer);
+	Library:MakeDraggableOutline(WindowLabel, Outer);
+
+	local VersionLabel = Library:CreateLabel({
+		Position = UDim2.new(0, -8, 0, 0);
+		Size = UDim2.new(1, 0, 0, 25);
+		Text = Config.Version or '';
+		RichText = true;
+		TextXAlignment = Enum.TextXAlignment.Right;
+		ZIndex = 1;
+		Parent = Inner;
+	});
 
 	local MainSectionOuter = Library:Create('Frame', {
 		BackgroundColor3 = Library.BackgroundColor;
@@ -3867,15 +3849,12 @@ function Library:CreateWindow(...)
 	if typeof(Config.Size) ~= 'UDim2' then Config.Size = UDim2.fromOffset(750, 600) end
 
 	if Config.Center then
-		local vp = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1280, 720)
-		local sw, sh = vp.X, vp.Y
-		local wx = Config.Size.X.Offset
-		local wy = Config.Size.Y.Offset
-		Config.AnchorPoint = Vector2.zero
+		local vp = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1280, 720);
+		Config.AnchorPoint = Vector2.zero;
 		Config.Position = UDim2.fromOffset(
-			math.floor((sw - wx) / 2),
-			math.floor((sh - wy) / 2)
-		)
+			math.floor((vp.X - Config.Size.X.Offset) / 2),
+			math.floor((vp.Y - Config.Size.Y.Offset) / 2)
+		);
 	end
 
 	Library.UISize = Config.Size;
@@ -3895,7 +3874,7 @@ function Library:CreateWindow(...)
 		Parent = ScreenGui;
 	});
 
-	Library:MakeDraggableOutline(Outer, 25); -- REMOVED: replaced by WindowLabel drag below
+	Library:MakeDraggableOutline(Outer, 25); -- replaced below
 
 	local ScrollFrames = {};
 
@@ -3933,8 +3912,7 @@ function Library:CreateWindow(...)
 		Parent = Inner;
 	});
 
-	-- drag the whole window by clicking the title bar only
-	Library:MakeDraggable(WindowLabel, Outer);
+	Library:MakeDraggableOutline(WindowLabel, Outer);
 
 	--local VersionLabel = Library:CreateLabel({
 	--	Position = UDim2.new(0, -8, 0, 0);
@@ -3960,6 +3938,71 @@ function Library:CreateWindow(...)
 		ZIndex = 1;
 		Parent = Inner;
 	});
+
+	-- FadingTitle: letters cycle through Library.FadeColor edges-inward then back.
+	-- Enable with FadingTitle=true in CreateWindow. Color controlled by Library.FadeColor.
+	if Config.FadingTitle and Config.Title and #Config.Title > 0 then
+		WindowLabel.Text = '';
+		local letters = {};
+		local function buildLetters()
+			for _, l in ipairs(letters) do pcall(function() l:Destroy() end) end;
+			table.clear(letters);
+			local widths = {}; local totalW = 0;
+			for i = 1, #Config.Title do
+				local w = Library:GetTextBounds(Config.Title:sub(i,i), Library.Font, 14);
+				widths[i] = w; totalW = totalW + w;
+			end;
+			local startX = math.floor((Inner.AbsoluteSize.X - totalW) / 2);
+			local curX = startX;
+			for i = 1, #Config.Title do
+				local lbl = Library:CreateLabel({
+					Position = UDim2.fromOffset(curX, 4);
+					Size = UDim2.fromOffset(widths[i] + 1, 18);
+					Text = Config.Title:sub(i,i);
+					TextXAlignment = Enum.TextXAlignment.Left;
+					TextSize = 14; ZIndex = 2; Parent = Inner;
+				});
+				letters[i] = lbl; curX = curX + widths[i];
+			end;
+		end;
+		task.spawn(function()
+			while Inner.AbsoluteSize.X == 0 do task.wait() end;
+			buildLetters();
+			Inner:GetPropertyChangedSignal('AbsoluteSize'):Connect(function() task.defer(buildLetters) end);
+			local function edgesOrder(n)
+				local o = {};
+				for i = 1, math.ceil(n/2) do
+					table.insert(o, i);
+					if i ~= n-i+1 then table.insert(o, n-i+1) end;
+				end;
+				return o;
+			end;
+			local delay, ft, pause = 0.06, 0.18, 2.0;
+			while Inner.Parent do
+				local n = #letters;
+				if n == 0 then task.wait(0.5); continue end;
+				local fc = Library.FadeColor or Color3.new(0,0,0);
+				local ord = edgesOrder(n);
+				for _, i in ipairs(ord) do
+					if not Inner.Parent then break end;
+					if letters[i] and letters[i].Parent then
+						TweenService:Create(letters[i], TweenInfo.new(ft, Enum.EasingStyle.Quad), { TextColor3 = fc }):Play();
+					end;
+					task.wait(delay);
+				end;
+				task.wait(ft);
+				local rev = {}; for j = #ord, 1, -1 do table.insert(rev, ord[j]) end;
+				for _, i in ipairs(rev) do
+					if not Inner.Parent then break end;
+					if letters[i] and letters[i].Parent then
+						TweenService:Create(letters[i], TweenInfo.new(ft, Enum.EasingStyle.Quad), { TextColor3 = Library.FontColor }):Play();
+					end;
+					task.wait(delay);
+				end;
+				task.wait(ft + pause);
+			end;
+		end);
+	end;
 
 	local MainSectionOuter = Library:Create('Frame', {
 		BackgroundColor3 = Library.BackgroundColor;
@@ -4043,166 +4086,7 @@ function Library:CreateWindow(...)
 	end;
 
 
-	-- shared helper: build per-letter labels for text inside parentFrame
-	-- waits for real AbsoluteSize before positioning (fixes zero-size on first load)
-	local function buildLetterLabels(text, parentFrame, rightAlign)
-		local letters = {};
-		local function build()
-			for _, lbl in ipairs(letters) do pcall(function() lbl:Destroy() end) end;
-			table.clear(letters);
-			local totalW = 0;
-			local widths = {};
-			for i = 1, #text do
-				local w = Library:GetTextBounds(text:sub(i,i), Library.Font, 14);
-				table.insert(widths, w);
-				totalW = totalW + w;
-			end;
-			local frameW = parentFrame.AbsoluteSize.X;
-			local startX = rightAlign
-				and math.floor(frameW - totalW - 8)
-				or  math.floor((frameW - totalW) / 2);
-			local curX = startX;
-			for i = 1, #text do
-				local lbl = Library:CreateLabel({
-					Position       = UDim2.fromOffset(curX, 4);
-					Size           = UDim2.fromOffset(widths[i] + 1, 18);
-					Text           = text:sub(i,i);
-					TextXAlignment = Enum.TextXAlignment.Left;
-					TextSize       = 14;
-					ZIndex         = 2;
-					Parent         = parentFrame;
-				});
-				table.insert(letters, lbl);
-				curX = curX + widths[i];
-			end;
-		end;
-		task.spawn(function()
-			-- wait until AbsoluteSize is real (gui may not be visible yet on first frame)
-			while parentFrame.AbsoluteSize.X == 0 do task.wait() end;
-			build();
-			parentFrame:GetPropertyChangedSignal('AbsoluteSize'):Connect(function()
-				task.defer(build);
-			end);
-		end);
-		return letters;
-	end;
-
-	-- shared helper: build edges-inward index order for n letters
-	local function edgesOrder(n)
-		local o = {};
-		for i = 1, math.ceil(n / 2) do
-			table.insert(o, i);
-			if i ~= n - i + 1 then table.insert(o, n - i + 1) end;
-		end;
-		return o;
-	end;
-
-	-- FadingTitle: continuously tweens letters through FadeColor (edges-inward) then back to FontColor.
-	-- Controlled by Config.FadingTitle = true. Color is Library.FadeColor (set via color picker).
-	if Config.FadingTitle and Config.Title and #Config.Title > 0 then
-		WindowLabel.Text = '';
-		local letters = buildLetterLabels(Config.Title, Inner, false);
-		task.spawn(function()
-			while #letters == 0 do task.wait() end;
-			local delay = 0.06; local ft = 0.18; local pause = 2.0;
-			while Inner.Parent do
-				local n = #letters;
-				if n == 0 then task.wait(0.5); continue end;
-				local fc = Library.FadeColor or Color3.new(0, 0, 0);
-				local ord = edgesOrder(n);
-				-- fade to FadeColor edges-inward
-				for _, i in ipairs(ord) do
-					if not Inner.Parent then break end;
-					if letters[i] and letters[i].Parent then
-						TweenService:Create(letters[i], TweenInfo.new(ft, Enum.EasingStyle.Quad), { TextColor3 = fc }):Play();
-					end;
-					task.wait(delay);
-				end;
-				task.wait(ft);
-				-- fade back to FontColor center-outward (reverse)
-				local rev = {}; for j = #ord, 1, -1 do table.insert(rev, ord[j]) end;
-				for _, i in ipairs(rev) do
-					if not Inner.Parent then break end;
-					if letters[i] and letters[i].Parent then
-						TweenService:Create(letters[i], TweenInfo.new(ft, Enum.EasingStyle.Quad), { TextColor3 = Library.FontColor }):Play();
-					end;
-					task.wait(delay);
-				end;
-				task.wait(ft + pause);
-			end;
-		end);
-	end;
-
-	-- FadingTitle on version string too if ColoredVersion requested
-	if Config.ColoredVersion and Config.Version and #tostring(Config.Version) > 0 then
-		VersionLabel.Text = '';
-		local ver = tostring(Config.Version);
-		local letters = buildLetterLabels(ver, Inner, true);
-		task.spawn(function()
-			while #letters == 0 do task.wait() end;
-			local delay = 0.06; local ft = 0.18; local pause = 2.0;
-			while Inner.Parent do
-				local n = #letters;
-				if n == 0 then task.wait(0.5); continue end;
-				local fc = Library.FadeColor or Color3.new(0, 0, 0);
-				local ord = edgesOrder(n);
-				for _, i in ipairs(ord) do
-					if not Inner.Parent then break end;
-					if letters[i] and letters[i].Parent then
-						TweenService:Create(letters[i], TweenInfo.new(ft, Enum.EasingStyle.Quad), { TextColor3 = fc }):Play();
-					end;
-					task.wait(delay);
-				end;
-				task.wait(ft);
-				local rev = {}; for j = #ord, 1, -1 do table.insert(rev, ord[j]) end;
-				for _, i in ipairs(rev) do
-					if not Inner.Parent then break end;
-					if letters[i] and letters[i].Parent then
-						TweenService:Create(letters[i], TweenInfo.new(ft, Enum.EasingStyle.Quad), { TextColor3 = Library.FontColor }):Play();
-					end;
-					task.wait(delay);
-				end;
-				task.wait(ft + pause);
-			end;
-		end);
-	end;
-
-	-- FadingName: letters go transparent edges-inward then reappear (visibility variant, no color)
-	if Config.FadingName and Config.Title and #Config.Title > 0 then
-		if not Config.FadingTitle then WindowLabel.Text = '' end;
-		local letters = buildLetterLabels(Config.Title, Inner, false);
-		task.spawn(function()
-			while #letters == 0 do task.wait() end;
-			local delay = 0.06; local ft = 0.16; local pause = 2.0;
-			while Inner.Parent do
-				local n = #letters;
-				if n == 0 then task.wait(0.5); continue end;
-				local ord = edgesOrder(n);
-				for _, i in ipairs(ord) do
-					if not Inner.Parent then break end;
-					if letters[i] and letters[i].Parent then
-						TweenService:Create(letters[i], TweenInfo.new(ft, Enum.EasingStyle.Quad), { TextTransparency = 1 }):Play();
-					end;
-					task.wait(delay);
-				end;
-				task.wait(ft);
-				local rev = {}; for j = #ord, 1, -1 do table.insert(rev, ord[j]) end;
-				for _, i in ipairs(rev) do
-					if not Inner.Parent then break end;
-					if letters[i] and letters[i].Parent then
-						TweenService:Create(letters[i], TweenInfo.new(ft, Enum.EasingStyle.Quad), { TextTransparency = 0 }):Play();
-					end;
-					task.wait(delay);
-				end;
-				task.wait(ft + pause);
-			end;
-		end);
-	end;
-
-
-
-
-
+	Library.FontNames = { 'code', 'gotham', 'gotham bold', 'roboto', 'roboto mono', 'source sans', 'ubuntu', 'arial' };
 
 	function Window:AddTab(Name)
 
@@ -4685,45 +4569,20 @@ function Library:CreateWindow(...)
 	local Toggled = false;
 	local Fading = false;
 
-	-- helper: tween all descendant transparencies to target and wait
-	local function tweenDescendants(target, time)
-		for _, Desc in next, Outer:GetDescendants() do
-			local props = {};
-			if Desc:IsA('ImageLabel') or Desc:IsA('ImageButton') then
-				table.insert(props, 'ImageTransparency');
-				table.insert(props, 'BackgroundTransparency');
-			elseif Desc:IsA('TextLabel') or Desc:IsA('TextBox') or Desc:IsA('TextButton') then
-				table.insert(props, 'TextTransparency');
-				table.insert(props, 'BackgroundTransparency');
-			elseif Desc:IsA('Frame') or Desc:IsA('ScrollingFrame') then
-				table.insert(props, 'BackgroundTransparency');
-			elseif Desc:IsA('UIStroke') then
-				table.insert(props, 'Transparency');
-			end;
-			local Cache = TransparencyCache[Desc];
-			if not Cache then Cache = {}; TransparencyCache[Desc] = Cache; end;
-			for _, prop in next, props do
-				if not Cache[prop] then Cache[prop] = Desc[prop]; end;
-				if Cache[prop] == 1 then continue; end;
-				TweenService:Create(Desc, TweenInfo.new(time, Enum.EasingStyle.Linear), {
-					[prop] = (target == 'show') and Cache[prop] or 1
-				}):Play();
-			end;
-		end;
-		task.wait(time);
-	end;
-
 	function Library:Toggle()
-		if Fading then return; end;
+		if Fading then
+			return;
+		end;
 
 		local FadeTime = Config.MenuFadeTime;
 		Fading = true;
-		Toggled = not Toggled;
+		Toggled = (not Toggled);
 		_UI_IS_VISIBLE = Toggled;
+
 		ModalElement.Modal = Toggled;
 
+		-- custom cursor (only while gui is open)
 		if Toggled then
-			-- spawn custom cursor
 			task.spawn(function()
 				local State = InputService.MouseIconEnabled;
 				local Cursor = Instance.new("ImageLabel", ScreenGui);
@@ -4733,6 +4592,7 @@ function Library:CreateWindow(...)
 				Cursor.ZIndex = 100;
 				Cursor.Size = UDim2.fromOffset(17, 17);
 				Cursor.Rotation = -45;
+
 				local CursorOutline = Instance.new("ImageLabel", ScreenGui);
 				CursorOutline.Image = "http://www.roblox.com/asset/?id=4292970642";
 				CursorOutline.ImageColor3 = Color3.new();
@@ -4741,17 +4601,21 @@ function Library:CreateWindow(...)
 				CursorOutline.ZIndex = 99;
 				CursorOutline.Size = UDim2.fromOffset(19, 19);
 				CursorOutline.Rotation = -45;
+
 				TweenService:Create(Cursor, TweenInfo.new(FadeTime, Enum.EasingStyle.Linear), { ImageTransparency = 0 }):Play();
 				TweenService:Create(CursorOutline, TweenInfo.new(FadeTime, Enum.EasingStyle.Linear), { ImageTransparency = 0 }):Play();
+
 				while Toggled and ScreenGui.Parent do
 					InputService.MouseIconEnabled = false;
 					local mPos = InputService:GetMouseLocation();
+					-- IgnoreGuiInset=true: ScreenGui origin is (0,0), use raw position
 					local udim = UDim2.fromOffset(mPos.X, mPos.Y);
 					Cursor.ImageColor3 = Library.AccentColor;
 					Cursor.Position = udim;
 					CursorOutline.Position = udim - UDim2.fromOffset(1, 1);
 					RenderStepped:Wait();
 				end;
+
 				InputService.MouseIconEnabled = State;
 				TweenService:Create(Cursor, TweenInfo.new(FadeTime, Enum.EasingStyle.Linear), { ImageTransparency = 1 }):Play();
 				TweenService:Create(CursorOutline, TweenInfo.new(FadeTime, Enum.EasingStyle.Linear), { ImageTransparency = 1 }):Play();
@@ -4759,83 +4623,97 @@ function Library:CreateWindow(...)
 				Cursor:Destroy();
 				CursorOutline:Destroy();
 			end);
+		end;
 
-			if not Config.DontFade then
-				local fullSize = Library._SavedSize or Outer.Size;
-				local fullPos  = Library._SavedPosition or Outer.Position;
-
-				if Library.FadingAnimation then
-					-- start small, invisible, then grow + fade in simultaneously
-					local cx = fullPos.X.Offset + fullSize.X.Offset / 2;
-					local cy = fullPos.Y.Offset + fullSize.Y.Offset / 2;
-					local smallW = fullSize.X.Offset * 0.88;
-					local smallH = fullSize.Y.Offset * 0.88;
-					Outer.Size     = UDim2.fromOffset(smallW, smallH);
-					Outer.Position = UDim2.fromOffset(cx - smallW / 2, cy - smallH / 2);
-					Outer.Visible  = true;
-					Outer.Parent   = ScreenGui;
-					-- fade all descendants to invisible first (so they fade IN)
-					for _, Desc in next, Outer:GetDescendants() do
-						local props = {};
-						if Desc:IsA('ImageLabel') or Desc:IsA('ImageButton') then
-							table.insert(props, 'ImageTransparency'); table.insert(props, 'BackgroundTransparency');
-						elseif Desc:IsA('TextLabel') or Desc:IsA('TextBox') or Desc:IsA('TextButton') then
-							table.insert(props, 'TextTransparency'); table.insert(props, 'BackgroundTransparency');
-						elseif Desc:IsA('Frame') or Desc:IsA('ScrollingFrame') then
-							table.insert(props, 'BackgroundTransparency');
-						elseif Desc:IsA('UIStroke') then
-							table.insert(props, 'Transparency');
-						end;
-						local Cache = TransparencyCache[Desc];
-						if not Cache then Cache = {}; TransparencyCache[Desc] = Cache; end;
-						for _, prop in next, props do
-							if not Cache[prop] then Cache[prop] = Desc[prop]; end;
-							if Cache[prop] ~= 1 then Desc[prop] = 1; end;
-						end;
+		if (not Config.DontFade) then
+			-- helper: tween all descendant transparencies
+			local function tweenDescendants(showOrHide)
+				for _, Desc in next, Outer:GetDescendants() do
+					local props = {};
+					if Desc:IsA('ImageLabel') or Desc:IsA('ImageButton') then
+						table.insert(props, 'ImageTransparency');
+						table.insert(props, 'BackgroundTransparency');
+					elseif Desc:IsA('TextLabel') or Desc:IsA('TextBox') or Desc:IsA('TextButton') then
+						table.insert(props, 'TextTransparency');
+						table.insert(props, 'BackgroundTransparency');
+					elseif Desc:IsA('Frame') or Desc:IsA('ScrollingFrame') then
+						table.insert(props, 'BackgroundTransparency');
+					elseif Desc:IsA('UIStroke') then
+						table.insert(props, 'Transparency');
 					end;
-					-- now tween grow + fade in together
-					TweenService:Create(Outer, TweenInfo.new(FadeTime, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-						Size = fullSize; Position = fullPos;
-					}):Play();
-					tweenDescendants('show', FadeTime);
-				else
-					Outer.Size    = fullSize;
-					Outer.Position = fullPos;
-					Outer.Visible = true;
-					Outer.Parent  = ScreenGui;
-					tweenDescendants('show', FadeTime);
+					local Cache = TransparencyCache[Desc];
+					if not Cache then Cache = {}; TransparencyCache[Desc] = Cache; end;
+					for _, prop in next, props do
+						if not Cache[prop] then Cache[prop] = Desc[prop]; end;
+						if Cache[prop] == 1 then continue; end;
+						local target = (showOrHide == 'show') and Cache[prop] or 1;
+						TweenService:Create(Desc, TweenInfo.new(FadeTime, Enum.EasingStyle.Linear), { [prop] = target }):Play();
+					end;
 				end;
 			end;
-		else
-			if not Config.DontFade then
-				if Library.FadingAnimation then
-					-- save current size+pos, fade out + shrink simultaneously
-					Library._SavedSize     = Outer.Size;
-					Library._SavedPosition = Outer.Position;
-					local fullSize = Outer.Size;
-					local fullPos  = Outer.Position;
-					local cx = fullPos.X.Offset + fullSize.X.Offset / 2;
-					local cy = fullPos.Y.Offset + fullSize.Y.Offset / 2;
-					local smallW = fullSize.X.Offset * 0.88;
-					local smallH = fullSize.Y.Offset * 0.88;
-					-- fade out descendants and shrink simultaneously
-					TweenService:Create(Outer, TweenInfo.new(FadeTime, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
-						Size     = UDim2.fromOffset(smallW, smallH);
-						Position = UDim2.fromOffset(cx - smallW / 2, cy - smallH / 2);
-					}):Play();
-					tweenDescendants('hide', FadeTime);
-					Outer.Visible = false;
-					Outer.Parent  = nil;
-					-- restore size+pos so it's correct next open
-					Outer.Size     = Library._SavedSize;
-					Outer.Position = Library._SavedPosition;
-				else
-					tweenDescendants('hide', FadeTime);
-					Outer.Visible = false;
-					Outer.Parent  = nil;
+
+			if Toggled then
+				-- OPEN: restore saved size/pos, snap descendants to invisible, show, grow+fadein together
+				local fullSize = Library._SavedSize or Outer.Size;
+				local fullPos  = Library._SavedPos  or Outer.Position;
+				local cx = fullPos.X.Offset + fullSize.X.Offset / 2;
+				local cy = fullPos.Y.Offset + fullSize.Y.Offset / 2;
+				local sw = fullSize.X.Offset * 0.88;
+				local sh = fullSize.Y.Offset * 0.88;
+				-- snap descendants invisible so they fade in
+				for _, Desc in next, Outer:GetDescendants() do
+					local props = {};
+					if Desc:IsA('ImageLabel') or Desc:IsA('ImageButton') then
+						table.insert(props, 'ImageTransparency'); table.insert(props, 'BackgroundTransparency');
+					elseif Desc:IsA('TextLabel') or Desc:IsA('TextBox') or Desc:IsA('TextButton') then
+						table.insert(props, 'TextTransparency'); table.insert(props, 'BackgroundTransparency');
+					elseif Desc:IsA('Frame') or Desc:IsA('ScrollingFrame') then
+						table.insert(props, 'BackgroundTransparency');
+					elseif Desc:IsA('UIStroke') then
+						table.insert(props, 'Transparency');
+					end;
+					local Cache = TransparencyCache[Desc];
+					if not Cache then Cache = {}; TransparencyCache[Desc] = Cache; end;
+					for _, prop in next, props do
+						if not Cache[prop] then Cache[prop] = Desc[prop]; end;
+						if Cache[prop] ~= 1 then Desc[prop] = 1; end;
+					end;
 				end;
+				Outer.Size     = UDim2.fromOffset(sw, sh);
+				Outer.Position = UDim2.fromOffset(cx - sw / 2, cy - sh / 2);
+				Outer.Visible  = true;
+				Outer.Parent   = ScreenGui;
+				TweenService:Create(Outer, TweenInfo.new(FadeTime, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+					Size = fullSize; Position = fullPos;
+				}):Play();
+				tweenDescendants('show');
+				task.wait(FadeTime);
+			else
+				-- CLOSE: save size/pos, shrink+fadeout together, then hide and restore size
+				Library._SavedSize = Outer.Size;
+				Library._SavedPos  = Outer.Position;
+				local fullSize = Outer.Size;
+				local fullPos  = Outer.Position;
+				local cx = fullPos.X.Offset + fullSize.X.Offset / 2;
+				local cy = fullPos.Y.Offset + fullSize.Y.Offset / 2;
+				local sw = fullSize.X.Offset * 0.88;
+				local sh = fullSize.Y.Offset * 0.88;
+				TweenService:Create(Outer, TweenInfo.new(FadeTime, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
+					Size     = UDim2.fromOffset(sw, sh);
+					Position = UDim2.fromOffset(cx - sw / 2, cy - sh / 2);
+				}):Play();
+				tweenDescendants('hide');
+				task.wait(FadeTime);
+				Outer.Visible  = false;
+				Outer.Parent   = nil;
+				-- restore so next open starts from correct size
+				Outer.Size     = fullSize;
+				Outer.Position = fullPos;
 			end;
 		end;
+
+		Outer.Visible = Toggled;
+		Outer.Parent  = Toggled and ScreenGui or nil;
 
 		Fading = false;
 	end
