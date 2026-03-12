@@ -4098,7 +4098,7 @@ function Library:CreateWindow(...)
 			while Inner.Parent do
 				local n = #letters;
 				if n == 0 then task.wait(0.5); continue end;
-				local fc = Library.FadeColor or Color3.new(0, 0, 0);
+				local fc = Library.FadeColor;
 				local ord = edgesOrder(n);
 				for _, i in ipairs(ord) do
 					if not Inner.Parent then break end;
@@ -4132,7 +4132,7 @@ function Library:CreateWindow(...)
 			while Inner.Parent do
 				local n = #letters;
 				if n == 0 then task.wait(0.5); continue end;
-				local fc = Library.FadeColor or Color3.new(0, 0, 0);
+				local fc = Library.FadeColor;
 				local ord = edgesOrder(n);
 				for _, i in ipairs(ord) do
 					if not Inner.Parent then break end;
