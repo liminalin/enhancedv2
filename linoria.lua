@@ -61,6 +61,8 @@ local Library = {
 		};
 	]]
 
+	FadeColor = Color3.new(0, 0, 0);
+
 	Signals = {};
 	ScreenGui = ScreenGui;
 };
@@ -4027,81 +4029,202 @@ function Library:CreateWindow(...)
 		WindowLabel.Text = Title;
 	end;
 
-	if Config.FadingText and Config.Title and #Config.Title > 0 then
-		WindowLabel.Text = '';
-		local title = Config.Title;
+	-- helper: build per-letter labels for a given text, right-aligned if isRight
+	local function makeFadingLabel(text, parentFrame, isRight, yOffset, zIndex)
 		local letters = {};
 		local letterWidths = {};
 
-		-- measure total width so we can center the whole thing
-		local function buildLetters()
-			for _, lbl in ipairs(letters) do lbl:Destroy() end;
+		local function build()
+			for _, lbl in ipairs(letters) do pcall(function() lbl:Destroy() end) end;
 			letters = {};
 			letterWidths = {};
 
 			local totalW = 0;
-			for i = 1, #title do
-				local ch = title:sub(i, i);
+			for i = 1, #text do
+				local ch = text:sub(i, i);
 				local w = Library:GetTextBounds(ch, Library.Font, 14);
 				table.insert(letterWidths, w);
 				totalW = totalW + w;
 			end;
 
-			local startX = math.floor((WindowLabel.AbsoluteSize.X - totalW) / 2);
+			local startX;
+			if isRight then
+				-- align to right edge, accounting for -8 offset VersionLabel uses
+				startX = math.floor(parentFrame.AbsoluteSize.X - totalW - 8);
+			else
+				startX = math.floor((parentFrame.AbsoluteSize.X - totalW) / 2);
+			end;
 			local curX = startX;
 
-			for i = 1, #title do
-				local ch = title:sub(i, i);
+			for i = 1, #text do
+				local ch = text:sub(i, i);
 				local lbl = Library:CreateLabel({
-					Position = UDim2.fromOffset(curX, 4);
-					Size = UDim2.fromOffset(letterWidths[i] + 1, 18);
-					Text = ch;
+					Position = UDim2.fromOffset(curX, yOffset or 4);
+					Size     = UDim2.fromOffset(letterWidths[i] + 1, 18);
+					Text     = ch;
 					TextXAlignment = Enum.TextXAlignment.Left;
 					TextSize = 14;
-					ZIndex = 2;
-					Parent = Inner;
+					ZIndex   = zIndex or 2;
+					Parent   = parentFrame;
 				});
 				table.insert(letters, lbl);
 				curX = curX + letterWidths[i];
 			end;
 		end;
 
-		-- rebuild positions when window resizes
-		WindowLabel:GetPropertyChangedSignal('AbsoluteSize'):Connect(function()
-			task.defer(buildLetters);
-		end);
+		return letters, build;
+	end;
 
-		-- wait one frame so AbsoluteSize is ready
-		task.defer(buildLetters);
-
+	-- edges-inward fade: outermost letters fade first, converging to center, then reverse
+	local function runEdgesInwardLoop(getLetters, getParent)
 		task.spawn(function()
-			-- wait for letters to exist
-			while #letters == 0 do task.wait() end;
+			while #getLetters() == 0 do task.wait() end;
 
-			local letterDelay = 0.08;
-			local fadeTime    = 0.25;
-			local pauseTime   = 1.5;
+			local letterDelay = 0.07;
+			local fadeTime    = 0.2;
+			local pauseTime   = 1.8;
 
-			while Inner.Parent do
-				-- fade out left to right
-				for i = 1, #letters do
-					if not Inner.Parent then break end;
-					TweenService:Create(letters[i], TweenInfo.new(fadeTime), { TextTransparency = 1 }):Play();
+			while getParent() and getParent().Parent do
+				local letters = getLetters();
+				local n = #letters;
+				if n == 0 then task.wait(0.5); continue end;
+
+				local fadeColor = Library.FadeColor or Color3.new(0, 0, 0);
+
+				-- build edges-inward order: pairs (1,n), (2,n-1), (3,n-2)...
+				local order = {};
+				for i = 1, math.ceil(n / 2) do
+					table.insert(order, i);
+					if i ~= n - i + 1 then
+						table.insert(order, n - i + 1);
+					end;
+				end;
+
+				-- fade out edges inward
+				for _, idx in ipairs(order) do
+					if not (getParent() and getParent().Parent) then break end;
+					local lbl = letters[idx];
+					if lbl and lbl.Parent then
+						TweenService:Create(lbl, TweenInfo.new(fadeTime), {
+							TextTransparency = 1;
+							TextColor3 = fadeColor;
+						}):Play();
+					end;
 					task.wait(letterDelay);
 				end;
 
 				task.wait(fadeTime);
 
-				-- fade back in left to right
-				for i = 1, #letters do
-					if not Inner.Parent then break end;
-					TweenService:Create(letters[i], TweenInfo.new(fadeTime), { TextTransparency = 0 }):Play();
+				-- fade back in center outward (reverse of order)
+				local revOrder = {};
+				for i = #order, 1, -1 do table.insert(revOrder, order[i]) end;
+
+				for _, idx in ipairs(revOrder) do
+					if not (getParent() and getParent().Parent) then break end;
+					local lbl = letters[idx];
+					if lbl and lbl.Parent then
+						TweenService:Create(lbl, TweenInfo.new(fadeTime), {
+							TextTransparency = 0;
+							TextColor3 = Library.FontColor;
+						}):Play();
+					end;
 					task.wait(letterDelay);
 				end;
 
 				task.wait(fadeTime + pauseTime);
 			end;
 		end);
+	end;
+
+	if Config.FadingText and Config.Title and #Config.Title > 0 then
+		WindowLabel.Text = '';
+		local letters = {};
+		local _, build = makeFadingLabel(Config.Title, Inner, false, 4, 2);
+
+		local function rebuild()
+			local _, b = makeFadingLabel(Config.Title, Inner, false, 4, 2);
+			-- clear old
+			for _, lbl in ipairs(letters) do pcall(function() lbl:Destroy() end) end;
+			table.clear(letters);
+			-- rebuild via shared build
+			b();
+		end;
+
+		-- simpler: just share letters table reference
+		local allLetters = {};
+		local function buildDirect()
+			for _, lbl in ipairs(allLetters) do pcall(function() lbl:Destroy() end) end;
+			table.clear(allLetters);
+			local totalW = 0;
+			local widths = {};
+			for i = 1, #Config.Title do
+				local w = Library:GetTextBounds(Config.Title:sub(i,i), Library.Font, 14);
+				table.insert(widths, w);
+				totalW = totalW + w;
+			end;
+			local startX = math.floor((WindowLabel.AbsoluteSize.X - totalW) / 2);
+			local curX = startX;
+			for i = 1, #Config.Title do
+				local lbl = Library:CreateLabel({
+					Position = UDim2.fromOffset(curX, 4);
+					Size     = UDim2.fromOffset(widths[i] + 1, 18);
+					Text     = Config.Title:sub(i,i);
+					TextXAlignment = Enum.TextXAlignment.Left;
+					TextSize = 14;
+					ZIndex   = 2;
+					Parent   = Inner;
+				});
+				table.insert(allLetters, lbl);
+				curX = curX + widths[i];
+			end;
+		end;
+
+		WindowLabel:GetPropertyChangedSignal('AbsoluteSize'):Connect(function()
+			task.defer(buildDirect);
+		end);
+		task.defer(buildDirect);
+
+		runEdgesInwardLoop(function() return allLetters end, function() return Inner end);
+	end;
+
+	if Config.FadingVersion and Config.Version and #tostring(Config.Version) > 0 then
+		VersionLabel.Text = '';
+		local ver = tostring(Config.Version);
+		local allLetters = {};
+
+		local function buildDirect()
+			for _, lbl in ipairs(allLetters) do pcall(function() lbl:Destroy() end) end;
+			table.clear(allLetters);
+			local totalW = 0;
+			local widths = {};
+			for i = 1, #ver do
+				local w = Library:GetTextBounds(ver:sub(i,i), Library.Font, 14);
+				table.insert(widths, w);
+				totalW = totalW + w;
+			end;
+			local startX = math.floor(Inner.AbsoluteSize.X - totalW - 8);
+			local curX = startX;
+			for i = 1, #ver do
+				local lbl = Library:CreateLabel({
+					Position = UDim2.fromOffset(curX, 4);
+					Size     = UDim2.fromOffset(widths[i] + 1, 18);
+					Text     = ver:sub(i,i);
+					TextXAlignment = Enum.TextXAlignment.Left;
+					TextSize = 14;
+					ZIndex   = 2;
+					Parent   = Inner;
+				});
+				table.insert(allLetters, lbl);
+				curX = curX + widths[i];
+			end;
+		end;
+
+		VersionLabel:GetPropertyChangedSignal('AbsoluteSize'):Connect(function()
+			task.defer(buildDirect);
+		end);
+		task.defer(buildDirect);
+
+		runEdgesInwardLoop(function() return allLetters end, function() return Inner end);
 	end;
 
 	Library.FontNames = { 'code', 'gotham', 'gotham bold', 'roboto', 'roboto mono', 'source sans', 'ubuntu', 'arial' };
