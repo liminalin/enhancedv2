@@ -1535,8 +1535,8 @@ do
 				KeyPicker.Override = false;
 				KeyPicker.Toggled = false;
 			end;
-			if ParentObj.Type == 'Toggle' and KeyPicker.SyncToggleState then
-				ParentObj:SetValue(not ParentObj.Value)
+			if ParentObj.Type == 'Toggle' then
+				ParentObj:SetValue(KeyPicker.Toggled)
 			end
 
 			Library:SafeCallback(KeyPicker.Callback, KeyPicker.Toggled)
