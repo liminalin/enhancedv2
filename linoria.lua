@@ -61,6 +61,8 @@ local Library = {
 		};
 	]]
 
+	LinoriaCursorEnabled = true;
+
 	Signals = {};
 	ScreenGui = ScreenGui;
 };
@@ -4521,6 +4523,7 @@ function Library:CreateWindow(...)
 			-- A bit scuffed, but if we're going from not toggled -> toggled we want to show the frame immediately so that the fade is visible.
 			Outer.Visible = true;
 			local guiservice = game:GetService("GuiService");
+			if Library.LinoriaCursorEnabled then
 			task.spawn(function()
 				-- TODO: optimize cursor fade to be only 2 lines
 				local State = InputService.MouseIconEnabled;
@@ -4584,6 +4587,7 @@ function Library:CreateWindow(...)
 				Cursor:Destroy();
 				CursorOutline:Destroy();
 			end);
+			end; -- LinoriaCursorEnabled
 		end;
 
 		if (not Config.DontFade) then
