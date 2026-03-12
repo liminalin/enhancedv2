@@ -4672,7 +4672,7 @@ function Library:CreateWindow(...)
 	local TransparencyCache = {};
 	local Toggled = false;
 	local Fading = false;
-	local FullWindowSize = nil;
+	local FullWindowSize = Vector2.new(Config.Size.X, Config.Size.Y);
 
 	function Library:Toggle()
 		if Fading then
@@ -4736,12 +4736,12 @@ function Library:CreateWindow(...)
 			if Library.FadingAnimation then
 				if Toggled then
 					-- grow from 85% + transparent back to full original size
-					local fullW = FullWindowSize and FullWindowSize.X or Outer.AbsoluteSize.X;
-					local fullH = FullWindowSize and FullWindowSize.Y or Outer.AbsoluteSize.Y;
+					local fullW = FullWindowSize.X;
+					local fullH = FullWindowSize.Y;
 					local smallW = fullW * 0.85;
 					local smallH = fullH * 0.85;
-					local cx = Outer.AbsolutePosition.X + Outer.AbsoluteSize.X / 2;
-					local cy = Outer.AbsolutePosition.Y + Outer.AbsoluteSize.Y / 2;
+					local cx = Outer.AbsolutePosition.X + smallW / 2;
+					local cy = Outer.AbsolutePosition.Y + smallH / 2;
 					Outer.AnchorPoint = Vector2.new(0, 0);
 					Outer.Size = UDim2.fromOffset(smallW, smallH);
 					Outer.Position = UDim2.fromOffset(cx - smallW / 2, cy - smallH / 2);
@@ -4761,8 +4761,7 @@ function Library:CreateWindow(...)
 						Position = UDim2.fromOffset(cx - fullW / 2, cy - fullH / 2);
 					}):Play();
 				else
-					-- save full size, then shrink + fade out
-					FullWindowSize = Vector2.new(Outer.AbsoluteSize.X, Outer.AbsoluteSize.Y);
+					-- shrink + fade out
 					local fullW = FullWindowSize.X;
 					local fullH = FullWindowSize.Y;
 					local cx = Outer.AbsolutePosition.X + fullW / 2;
