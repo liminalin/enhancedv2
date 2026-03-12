@@ -17,7 +17,7 @@ ProtectGui(ScreenGui);
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global;
 ScreenGui.Parent = CoreGui;
 ScreenGui.DisplayOrder = 20;
-ScreenGui.IgnoreGuiInset = True;
+ScreenGui.IgnoreGuiInset = true;
 
 local Toggles = {};
 local Options = {};
@@ -3866,8 +3866,15 @@ function Library:CreateWindow(...)
 	if typeof(Config.Size) ~= 'UDim2' then Config.Size = UDim2.fromOffset(750, 600) end
 
 	if Config.Center then
-		Config.AnchorPoint = Vector2.new(0.5, 0.5)
-		Config.Position = UDim2.fromScale(0.5, 0.5)
+		local vp = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1280, 720)
+		local sw, sh = vp.X, vp.Y
+		local wx = Config.Size.X.Offset
+		local wy = Config.Size.Y.Offset
+		Config.AnchorPoint = Vector2.zero
+		Config.Position = UDim2.fromOffset(
+			math.floor((sw - wx) / 2),
+			math.floor((sh - wy) / 2)
+		)
 	end
 
 	Library.UISize = Config.Size;
