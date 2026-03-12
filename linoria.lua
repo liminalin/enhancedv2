@@ -4557,7 +4557,7 @@ function Library:CreateWindow(...)
 
 				Cursor.Size, CursorOutline.Size = UDim2.fromOffset(17, 17),  UDim2.fromOffset(19, 19);
 				Cursor.Rotation, CursorOutline.Rotation = -45, -45;
-				while Toggled and ScreenGui.Parent do
+				while Toggled and ScreenGui.Parent and Library.LinoriaCursorEnabled do
 					InputService.MouseIconEnabled = false;
 
 					local mPos = InputService:GetMouseLocation();
