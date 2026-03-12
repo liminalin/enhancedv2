@@ -1424,11 +1424,7 @@ do
 			KeyPicker.Toggled = false;
 			DisplayLabel.Text = 'None';
 			contextmenu:Hide();
-			for mode, button in buttons do
-				button.TextColor3 = mode == KeyPicker.Mode and Library.AccentColor or Library.FontColor;
-			end;
 			KeyPicker:Update();
-			Library:SafeCallback(KeyPicker.Changed, KeyPicker.Value);
 			Library:AttemptSave();
 		end)
 
