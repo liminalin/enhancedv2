@@ -226,17 +226,13 @@ function Library:MakeResizable(Outer, OnResize)
 			and mx <= (ap.X + as.X) and my <= (ap.Y + as.Y);
 	end;
 
-	-- visual handle pinned to bottom-right of Outer, parented to ScreenGui so it's always on top
+	-- invisible resize handle pinned to bottom-right corner, no visible cube
 	local Handle = Library:Create('Frame', {
-		BackgroundColor3 = Library.AccentColor;
+		BackgroundTransparency = 1;
 		BorderSizePixel = 0;
 		Size = UDim2.fromOffset(HitZone, HitZone);
 		ZIndex = 300;
 		Parent = ScreenGui;
-	});
-
-	Library:AddToRegistry(Handle, {
-		BackgroundColor3 = 'AccentColor';
 	});
 
 	-- keep handle position synced to bottom-right of Outer
@@ -3863,7 +3859,7 @@ function Library:CreateWindow(...)
 	if type(Config.MenuFadeTime) ~= 'number' then Config.MenuFadeTime = 0.2 end
 	
 	if typeof(Config.Position) ~= 'UDim2' then Config.Position = UDim2.fromOffset(175, 50) end
-	if typeof(Config.Size) ~= 'UDim2' then Config.Size = UDim2.fromOffset(550, 600) end
+	if typeof(Config.Size) ~= 'UDim2' then Config.Size = UDim2.fromOffset(750, 600) end
 
 	if Config.Center then
 		Config.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -3981,11 +3977,16 @@ function Library:CreateWindow(...)
 	-- vertical left sidebar for tabs
 	local SidebarWidth = 100;
 
-	local TabArea = Library:Create('Frame', {
+	local TabArea = Library:Create('ScrollingFrame', {
 		BackgroundColor3 = Library.BackgroundColor;
 		BorderColor3 = Library.OutlineColor;
 		Position = UDim2.new(0, 8, 0, 8);
 		Size = UDim2.new(0, SidebarWidth, 1, -16);
+		CanvasSize = UDim2.new(0, 0, 0, 0);
+		ScrollBarThickness = 2;
+		ScrollBarImageColor3 = Library.AccentColor;
+		TopImage = '';
+		BottomImage = '';
 		ZIndex = 1;
 		Parent = MainSectionInner;
 	});
@@ -3993,6 +3994,7 @@ function Library:CreateWindow(...)
 	Library:AddToRegistry(TabArea, {
 		BackgroundColor3 = 'BackgroundColor';
 		BorderColor3 = 'OutlineColor';
+		ScrollBarImageColor3 = 'AccentColor';
 	});
 
 	local TabListLayout = Library:Create('UIListLayout', {
@@ -4002,6 +4004,10 @@ function Library:CreateWindow(...)
 		HorizontalAlignment = Enum.HorizontalAlignment.Center;
 		Parent = TabArea;
 	});
+
+	TabListLayout:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(function()
+		TabArea.CanvasSize = UDim2.new(0, 0, 0, TabListLayout.AbsoluteContentSize.Y);
+	end);
 
 	local TabContainer = Library:Create('Frame', {
 		BackgroundColor3 = Library.MainColor;
