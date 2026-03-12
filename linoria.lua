@@ -282,48 +282,50 @@ local DraggingGui = Instance.new("ScreenGui", gethui());
 function Library:MakeDraggableOutline(Instance, Cutoff)
 	Instance.Active = true;
 
-	Instance.InputBegan:Connect(function(Input)
-		if Input.UserInputType == Enum.UserInputType.MouseButton1 then
-			local ObjPos = Vector2.new(
-				Mouse.X - Instance.AbsolutePosition.X,
-				Mouse.Y - Instance.AbsolutePosition.Y
+	InputService.InputBegan:Connect(function(Input, Processed)
+		if Processed then return end;
+		if Input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end;
+
+		-- check mouse is inside the window at all
+		local ap = Instance.AbsolutePosition;
+		local as = Instance.AbsoluteSize;
+		local mx, my = Mouse.X, Mouse.Y;
+		if mx < ap.X or mx > ap.X + as.X then return end;
+		if my < ap.Y or my > ap.Y + as.Y then return end;
+
+		-- only drag from the title bar strip (top Cutoff px)
+		local relY = my - ap.Y;
+		if relY > (Cutoff or 25) then return end;
+
+		local ObjPos = Vector2.new(mx - ap.X, my - ap.Y);
+
+		local frame = Library:Create("Frame", {
+			Parent = DraggingGui;
+			AnchorPoint = Instance.AnchorPoint;
+			BackgroundTransparency = 1;
+			Size = Instance.Size;
+			Position = Instance.Position;
+		});
+		local uistroke = Library:Create("UIStroke", {
+			Parent = frame;
+			Color = Library.AccentColor or Color3.new(0, 0, 0);
+		});
+
+		while InputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) do
+			frame.Position = UDim2.fromOffset(
+				Mouse.X - ObjPos.X,
+				Mouse.Y - ObjPos.Y
 			);
-
-			if ObjPos.Y > (Cutoff or 40) then
-				return;
-			end;
-
-			local frame = Library:Create("Frame", {
-				Parent = DraggingGui;
-				AnchorPoint = Instance.AnchorPoint;
-				BackgroundTransparency = 1;
-				Size = Instance.Size;
-				Position = Instance.Position;
-			});
-			local uistroke = Library:Create("UIStroke", {
-				Parent = frame;
-				Color = Library.AccentColor or Color3.new(0, 0, 0);
-			});
-
-			while InputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) do
-				frame.Position = UDim2.new(
-					0,
-					Mouse.X - ObjPos.X + (Instance.Size.X.Offset * Instance.AnchorPoint.X),
-					0,
-					Mouse.Y - ObjPos.Y + (Instance.Size.Y.Offset * Instance.AnchorPoint.Y)
-				);
-				uistroke.Color = Library.AccentColor or Color3.new(0, 0, 0);
-				RenderStepped:Wait();
-			end;
-			Instance.Position = UDim2.new(
-				0,
-				Mouse.X - ObjPos.X + (Instance.Size.X.Offset * Instance.AnchorPoint.X),
-				0,
-				Mouse.Y - ObjPos.Y + (Instance.Size.Y.Offset * Instance.AnchorPoint.Y)
-			);
-			frame:Destroy();
+			uistroke.Color = Library.AccentColor or Color3.new(0, 0, 0);
+			RenderStepped:Wait();
 		end;
-	end)
+
+		Instance.Position = UDim2.fromOffset(
+			Mouse.X - ObjPos.X,
+			Mouse.Y - ObjPos.Y
+		);
+		frame:Destroy();
+	end);
 end;
 function Library:AddToolTip(InfoStr, HoverInstance)
 	local X, Y = Library:GetTextBounds(InfoStr, Library.Font, 14);
