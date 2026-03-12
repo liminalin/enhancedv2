@@ -46,14 +46,22 @@ local Library = {
 
 	NotificationStyle = {
 		Transparency = 0;
-		BarSide = "Left"; 
-		Alignment = "Left"; 
+		BarSide = "Left"; -- { "Left", "Right", "Bottom", "Top" };
+		Alignment = "Left"; -- { "Left", "Center", "Right" };
 		Y = 0.1;
 		X= 0;
 	};
 
 	KeypickerListVisible = true;
-	KeypickerListMode = "All"; 
+	KeypickerListMode = "All"; --[[
+		{
+			"Active",
+			"Toggled",
+			"All"
+		};
+	]]
+
+
 
 	FadeColor = Color3.fromRGB(54, 93, 171);
 
@@ -208,12 +216,12 @@ end;
 
 function Library:MakeResizable(Outer, OnResize)
 	local MinW, MinH = 400, 300;
-	local HitZone = 18; 
+	local HitZone = 18; -- px from bottom-right corner that counts as the resize zone
 
 	local resizing = false;
 	local startMouse, startSize;
 
-	
+	-- detect if mouse is in the bottom-right corner of Outer
 	local function inResizeZone()
 		local ap = Outer.AbsolutePosition;
 		local as = Outer.AbsoluteSize;
@@ -222,7 +230,7 @@ function Library:MakeResizable(Outer, OnResize)
 			and mx <= (ap.X + as.X) and my <= (ap.Y + as.Y);
 	end;
 
-	
+	-- invisible resize handle pinned to bottom-right corner, no visible cube
 	local Handle = Library:Create('Frame', {
 		BackgroundTransparency = 1;
 		BorderSizePixel = 0;
@@ -231,7 +239,7 @@ function Library:MakeResizable(Outer, OnResize)
 		Parent = ScreenGui;
 	});
 
-	
+	-- keep handle position synced to bottom-right of Outer
 	local function updateHandlePos()
 		local ap = Outer.AbsolutePosition;
 		local as = Outer.AbsoluteSize;
@@ -481,15 +489,15 @@ function Library:RemoveFromRegistry(Instance)
 end;
 
 function Library:UpdateColorsUsingRegistry()
-	
-	
+	-- TODO: Could have an 'active' list of objects
+	-- where the active list only contains Visible objects.
 
-	
-	
-	
-	
+	-- IMPL: Could setup .Changed events on the AddToRegistry function
+	-- that listens for the 'Visible' propert being changed.
+	-- Visible: true => Add to active list, and call UpdateColors function
+	-- Visible: false => Remove from active list.
 
-	
+	-- The above would be especially efficient for a rainbow menu color or live color-changing.
 
 	for Idx, Object in next, Library.Registry do
 		for Property, ColorIdx in next, Object.Properties do
@@ -503,18 +511,18 @@ function Library:UpdateColorsUsingRegistry()
 end;
 
 function Library:GiveSignal(Signal)
-	
+	-- Only used for signals not attached to library instances, as those should be cleaned up on object destruction by Roblox
 	table.insert(Library.Signals, Signal)
 end
 
 function Library:Unload()
-	
+	-- Unload all of the signals
 	for Idx = #Library.Signals, 1, -1 do
 		local Connection = table.remove(Library.Signals, Idx)
 		Connection:Disconnect()
 	end
 
-	
+	-- Call our unload callback, maybe to undo some hooks etc
 	if Library.OnUnload then
 		Library.OnUnload()
 	end
@@ -527,7 +535,7 @@ function Library:OnUnload(Callback)
 end
 
 local _callbacks = { };
-function Library:BindToInput(key, callback) 
+function Library:BindToInput(key, callback) -- adding so there isnt 869 quintillion connections
 	_callbacks[key] = _callbacks[key] or { };
 	table.insert(_callbacks[key], callback);
 end;
@@ -600,8 +608,8 @@ function Library:AddContextMenu(DisplayFrame, hitbox)
 	end
 
 	local _visible = false;
-	
-	
+	--DisplayFrame:GetPropertyChangedSignal('AbsolutePosition'):Connect(updateMenuPosition)
+	--ContextMenu.Inner.Layout:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(updateMenuSize);
 
 	(hitbox or DisplayFrame).InputBegan:Connect(function(Input)
 		if Input.UserInputType == Enum.UserInputType.MouseButton1 and not Library:MouseIsOverOpenedFrame() then
@@ -698,7 +706,7 @@ do
 	function Funcs:AddColorPicker(Idx, Info)
 		local ToggleParent = self;
 		local ToggleLabel = self.TextLabel;
-		
+		-- local Container = self.Container;
 
 		assert(Info.Default ~= nil or true, 'AddColorPicker: Missing default value.');
 		Info.Default = Info.Default or Color3.new(1, 1, 1);
@@ -733,7 +741,7 @@ do
 			Parent = ToggleLabel;
 		});
 
-		
+		-- Transparency image taken from https://github.com/matas3535/SplixPrivateDrawingLibrary/blob/main/Library.lua cus i'm lazy
 		local CheckerFrame = Library:Create('ImageLabel', {
 			BorderSizePixel = 0;
 			Size = UDim2.new(0, 27, 0, 13);
@@ -743,10 +751,10 @@ do
 			Parent = DisplayFrame;
 		});
 
-		
-		
-		
-		
+		-- 1/16/23
+		-- Rewrote this to be placed inside the Library ScreenGui
+		-- There was some issue which caused RelativeOffset to be way off
+		-- Thus the color picker would never show
 
 		local PickerFrameOuter = Library:Create('Frame', {
 			Name = 'Color';
@@ -950,7 +958,7 @@ do
 			Position = UDim2.fromOffset(5, 5);
 			TextXAlignment = Enum.TextXAlignment.Left;
 			TextSize = 14;
-			Text = ColorPicker.Title,
+			Text = ColorPicker.Title,--Info.Default;
 			TextWrapped = false;
 			ZIndex = 16;
 			Parent = PickerFrameInner;
@@ -993,7 +1001,7 @@ do
 			ContextMenu:Hide();
 		end)
 		ContextMenu:AddOption('Copy color', function()
-			Library.ColorClipboard = ColorPicker;
+			Library.ColorClipboard = ColorPicker;--.Value
 			Library:Notify('Copied color!', 2)
 			ContextMenu:Hide();
 		end)
@@ -1006,7 +1014,15 @@ do
 			ContextMenu:Hide();
 		end)
 
-		
+		--[[ContextMenu:AddOption('Copy HEX', function()
+			pcall(setclipboard, ColorPicker.Value:ToHex())
+			Library:Notify('Copied hex code to clipboard!', 2)
+		end)
+
+		ContextMenu:AddOption('Copy RGB', function()
+			pcall(setclipboard, table.concat({ math.floor(ColorPicker.Value.R * 255), math.floor(ColorPicker.Value.G * 255), math.floor(ColorPicker.Value.B * 255) }, ', '))
+			Library:Notify('Copied RGB values to clipboard!', 2)
+		end)]]
 		ContextMenu:AddOption('Copy Flag', function()
 			pcall(setclipboard, ColorPicker.Idx)
 			task.wait(); Library:Notify('Copied flag to clipboard!', 2);
@@ -1168,11 +1184,11 @@ do
 				if PickerFrameOuter.Visible then
 					ColorPicker:Hide()
 				else
-					
+					--ContextMenu:Hide()
 					ColorPicker:Show()
 				end;
 			elseif Input.UserInputType == Enum.UserInputType.MouseButton2 and not Library:MouseIsOverOpenedFrame() then
-				
+				--ContextMenu:Show()
 				ColorPicker:Hide()
 			end
 		end);
@@ -1237,11 +1253,11 @@ do
 		local KeyPicker = {
 			Value = Info.Default;
 			Toggled = false;
-			Mode = Info.Mode or 'Toggle'; 
+			Mode = Info.Mode or 'Toggle'; -- Always, Toggle, Hold
 			Type = 'KeyPicker';
 			Callback = Info.Callback or function(Value) end;
 			ChangedCallback = Info.ChangedCallback or function(New) end;
-			NoUI = Info.NoUI;
+			NoUI = Info.NoUI;--Info.NoUI;
 			SyncToggleState = Info.SyncToggleState or false;
 			Parent = ParentObj;
 			Connections = { };
@@ -1329,7 +1345,51 @@ do
 		local Modes = Info.Modes or { 'Always', 'Toggle', 'Hold', 'Unbind' };
 		local ModeButtons = {};
 
-		
+		--[[for Idx, Mode in next, Modes do
+			local ModeButton = {};
+
+			local Label = Library:CreateLabel({
+				Active = false;
+				Size = UDim2.new(1, 0, 0, 15);
+				TextSize = 13;
+				Text = Mode;
+				ZIndex = 16;
+				Parent = ModeSelectInner;
+			});
+
+			function ModeButton:Select()
+				for _, Button in next, ModeButtons do
+					Button:Deselect();
+				end;
+
+				KeyPicker.Mode = Mode;
+
+				Label.TextColor3 = Library.AccentColor;
+				Library.RegistryMap[Label].Properties.TextColor3 = 'AccentColor';
+
+				ModeSelectOuter.Visible = false;
+			end;
+
+			function ModeButton:Deselect()
+				KeyPicker.Mode = nil;
+
+				Label.TextColor3 = Library.FontColor;
+				Library.RegistryMap[Label].Properties.TextColor3 = 'FontColor';
+			end;
+
+			Label.InputBegan:Connect(function(Input)
+				if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+					ModeButton:Select();
+					Library:AttemptSave();
+				end;
+			end);
+
+			if Mode == KeyPicker.Mode then
+				ModeButton:Select();
+			end;
+
+			ModeButtons[Mode] = ModeButton;
+		end;]]
 
 		local contextmenu = Library:AddContextMenu(PickOuter);
 
@@ -1338,7 +1398,7 @@ do
 			local button;
 			if mode == 'Unbind' then
 				button = contextmenu:AddOption(mode, function()
-					
+					-- Unbind is an action: reset key to None and revert mode to Toggle
 					KeyPicker.Value = 'None';
 					KeyPicker.Mode = 'Toggle';
 					KeyPicker.Toggled = false;
@@ -1570,8 +1630,8 @@ do
 
 					Event:Disconnect();
 				end);
-				
-				
+				--elseif Input.UserInputType == Enum.UserInputType.MouseButton2 and not Library:MouseIsOverOpenedFrame() then
+				--ModeSelectOuter.Visible = true;
 			end;
 		end);
 
@@ -1595,15 +1655,15 @@ do
 				end;
 				KeyPicker:Update();
 			end;
-			
-			
+			--if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+			--	local AbsPos, AbsSize = ModeSelectOuter.AbsolutePosition, ModeSelectOuter.AbsoluteSize;
 
-			
-			
+			--	if Mouse.X < AbsPos.X or Mouse.X > AbsPos.X + AbsSize.X
+			--		or Mouse.Y < (AbsPos.Y - 20 - 1) or Mouse.Y > AbsPos.Y + AbsSize.Y then
 
-			
-			
-			
+			--		ModeSelectOuter.Visible = false;
+			--	end;
+			--end;
 		end))
 
 		KeyPicker:SetupConnection(InputService.InputEnded:Connect(function(Input)
@@ -1708,7 +1768,7 @@ do
 	end;
 
 	function Funcs:AddButton(...)
-		
+		-- TODO: Eventually redo this
 		local Button = {
 		};
 		local function ProcessButtonParams(Class, Obj, ...)
@@ -1883,6 +1943,7 @@ do
 			InitEvents(SubButton)
 			return SubButton
 		end
+
 
 		local Blanks = { };
 		function Button:Remove()
@@ -2147,28 +2208,28 @@ do
 			end);
 		end
 
-		
-		
+		-- https://devforum.roblox.com/t/how-to-make-textboxes-follow-current-cursor-position/1368429/6
+		-- thank you nicemike40 :)
 
 		local function Update()
 			local PADDING = 2
 			local reveal = Container.AbsoluteSize.X
 
 			if not Box:IsFocused() or Box.TextBounds.X <= reveal - 2 * PADDING then
-				
+				-- we aren't focused, or we fit so be normal
 				Box.Position = UDim2.new(0, PADDING, 0, 0)
 			else
-				
+				-- we are focused and don't fit, so adjust position
 				local cursor = Box.CursorPosition
 				if cursor ~= -1 then
-					
+					-- calculate pixel width of text from start to cursor
 					local subtext = string.sub(Box.Text, 1, cursor-1)
 					local width = TextService:GetTextSize(subtext, Box.TextSize, Box.Font, Vector2.new(math.huge, math.huge)).X
 
-					
+					-- check if we're inside the box with the cursor
 					local currentCursorPos = Box.Position.X.Offset + width
 
-					
+					-- adjust if necessary
 					if currentCursorPos < PADDING then
 						Box.Position = UDim2.fromOffset(PADDING-width, 0)
 					elseif currentCursorPos > reveal - PADDING - 1 then
@@ -2335,7 +2396,7 @@ do
 
 		ToggleRegion.InputBegan:Connect(function(Input)
 			if Input.UserInputType == Enum.UserInputType.MouseButton1 and not Library:MouseIsOverOpenedFrame() then
-				Toggle:SetValue(not Toggle.Value) 
+				Toggle:SetValue(not Toggle.Value) -- Why was it not like this from the start?
 				Library:AttemptSave();
 			end;
 		end);
@@ -2383,7 +2444,7 @@ do
 			Min = Info.Min;
 			Max = Info.Max;
 			Rounding = Info.Rounding;
-			MaxSize = 232;
+			MaxSize = 232;--SliderParent and 232/2 - 3 or 232;
 			Type = 'Slider';
 			Callback = Info.Callback or function(Value) end;
 			Increment = Info.Increment;
@@ -2413,7 +2474,7 @@ do
 		local SliderOuter = Library:Create('Frame', {
 			BackgroundColor3 = Color3.new(0, 0, 0);
 			BorderColor3 = Color3.new(0, 0, 0);
-			
+			--Position = UDim2.fromScale(Groupbox.SliderParent and .5 or 0,0);
 			Size = UDim2.new(1,0,0,13);
 			ZIndex = 5;
 			Parent = Container;
@@ -2632,7 +2693,7 @@ do
 				slider:Display();
 			end;
 
-			if (n_size ~= wanted_size) then 
+			if (n_size ~= wanted_size) then -- jank fix..
 				local slider = get_slider(1);
 				slider.Outer.Size = UDim2.new(0, n_size - (size + 1), 0, 13)
 				slider.Outer.Position = UDim2.new(1, 2, 0, 0);
@@ -2644,7 +2705,7 @@ do
 
 		ApplySliderSizes();
 
-		
+		-- Re-layout sliders whenever the groupbox container is resized (e.g. GUI drag-resize)
 		if (not SliderParent) then
 			Groupbox.Container:GetPropertyChangedSignal('AbsoluteSize'):Connect(function()
 				task.defer(ApplySliderSizes);
@@ -2683,7 +2744,7 @@ do
 			Value = Info.Multi and {};
 			Multi = Info.Multi;
 			Type = 'Dropdown';
-			SpecialType = Info.SpecialType; 
+			SpecialType = Info.SpecialType; -- can be either 'Player' or 'Team'
 			Callback = Info.Callback or function(Value) end;
 			Idx = Idx;
 		};
@@ -3069,7 +3130,7 @@ do
 				if ListOuter.Visible then
 					Dropdown:CloseDropdown();
 				else
-					
+					-- close any other open dropdowns first
 					for Frame, _ in next, Library.OpenedFrames do
 						Frame.Visible = false;
 						Library.OpenedFrames[Frame] = nil;
@@ -3233,6 +3294,7 @@ do
 	end;
 end;
 
+-- < Create other UI elements >
 do
 	local ns_init = Library.NotificationStyle or {};
 	local align_map = { Left = 0, Center = 0.5, Right = 1 };
@@ -3327,6 +3389,8 @@ do
 	Library.WatermarkText = WatermarkLabel;
 	Library:MakeDraggable(Library.Watermark);
 
+
+
 	local KeybindOuter = Library:Create('Frame', {
 		AnchorPoint = Vector2.new(0, 0.5);
 		BorderColor3 = Color3.new(0, 0, 0);
@@ -3417,7 +3481,7 @@ function Library:ToggleKeybindMenu()
 end;
 
 function Library:SetKeybindMenuMode(Mode)
-	
+	-- Mode: "all", "active", "toggled"
 	Library.KeypickerListMode = Mode;
 	for _, obj in next, Options do
 		if obj and obj.Type == 'KeyPicker' and obj.Update then
@@ -3435,7 +3499,7 @@ function Library:SetFont(NewFont)
 			pcall(function() Instance.Instance.Font = NewFont end);
 		end;
 	end;
-	
+	-- also walk all descendants of ScreenGui to catch anything not in registry
 	for _, obj in next, Library.ScreenGui:GetDescendants() do
 		if obj:IsA('TextLabel') or obj:IsA('TextButton') or obj:IsA('TextBox') then
 			pcall(function() obj.Font = NewFont end);
@@ -3470,6 +3534,7 @@ local NotificationStyle = Library.NotificationStyle;
 
 local _char, _max = string.char, math.max;
 
+
 local get_notification_colors = function()
 	local callback = NotificationStyle.OverrideColor;
 	if (callback) then
@@ -3481,32 +3546,32 @@ end;
 local notification_clone;
 do
 	local NotifyOuter = Library:Create('Frame', {
-		
-		
+		--Transparency = transparency;
+		--BackgroundColor3 = main;
 		BorderColor3 = Color3.new(0, 0, 0);
 		Position = UDim2.new(0, 100, 0, 10);
-		
+		--Size = UDim2.new(0, 0, 0, YSize);
 		ClipsDescendants = true;
 		ZIndex = 100;
-		
-		
+		--Parent = Library.NotificationArea;
+		--Name = _char(256 - _max(1, #Text % 256)); -- so it filters by text length if thats on
 	});
 
 	local NotifyInner = Library:Create('Frame', {
-		
-		
+		--BackgroundColor3 = main;
+		--BorderColor3 = outline;
 		BorderMode = Enum.BorderMode.Inset;
 		Size = UDim2.new(1, 0, 1, 0);
 		ZIndex = 101;
 		Parent = NotifyOuter;
-		
+		--Transparency = transparency;
 		Name = "inner";
 	});
 
-	
-	
-	
-	
+	--Library:AddToRegistry(NotifyInner, {
+	--	BackgroundColor3 = 'MainColor';
+	--	BorderColor3 = 'OutlineColor';
+	--}, true);
 
 	local InnerFrame = Library:Create('Frame', {
 		BackgroundColor3 = Color3.new(1, 1, 1);
@@ -3519,27 +3584,29 @@ do
 	});
 
 	local Gradient = Library:Create('UIGradient', {
-		
-		
-		
-		
+		--Color = ColorSequence.new({
+		--	ColorSequenceKeypoint.new(0, Library:GetDarkerColor(Library.MainColor)),
+		--	ColorSequenceKeypoint.new(1, Library.MainColor),
+		--});
 		Rotation = -90;
 		Parent = InnerFrame;
 	});
 
-	
-	
-	
-	
-	
-	
-	
-	
+
+
+	--Library:AddToRegistry(Gradient, {
+	--	Color = function()
+	--		return ColorSequence.new({
+	--			ColorSequenceKeypoint.new(0, Library:GetDarkerColor(Library.MainColor)),
+	--			ColorSequenceKeypoint.new(1, Library.MainColor),
+	--		});
+	--	end
+	--});
 
 	local NotifyLabel = Library:CreateLabel({
 		Position = UDim2.new(0, 4, 0, 0);
 		Size = UDim2.new(1, -4, 1, 0);
-		
+		--Text = Text;
 		TextXAlignment = Enum.TextXAlignment.Left;
 		TextSize = 14;
 		ZIndex = 103;
@@ -3547,29 +3614,33 @@ do
 		Parent = InnerFrame;
 	});
 
+
+
 	local LeftColor = Library:Create('Frame', {
-		
+		--BackgroundColor3 = accent;
 		BorderSizePixel = 0;
-		
-		
+		--Position = NotifySettings.BarPosition[NotificationStyle.BarSide];
+		-- = NotifySettings.BarSize[NotificationStyle.BarSide] or UDim2.new(0, 3, 1, 2);
 		ZIndex = 104;
 		Name = "bar";
 		Parent = NotifyOuter;
 	});
 
-	
-	
-	
+	--Library:AddToRegistry(LeftColor, {
+	--	BackgroundColor3 = 'AccentColor';
+	--}, true);
 
 	notification_clone = NotifyOuter;
 end;
+
 
 function Library:CreatePopout(Config)
 	if type(Config.Title) ~= 'string' then Config.Title = 'No title' end;
 
 	if typeof(Config.Position) ~= 'UDim2' then Config.Position = UDim2.fromOffset(175, 50) end;
 
-	
+
+	--if typeof(Config.Size) ~= 'UDim2' then Config.Size = UDim2.fromOffset(550, 600) end;
 
 	if Config.Center then
 		Config.AnchorPoint = Vector2.new(0.5, 0.5);
@@ -3654,7 +3725,7 @@ function Library:CreatePopout(Config)
 	});
 
 	local BackgroundFrame = Library:Create('Frame', {
-		BackgroundColor3 = Library.BackgroundColor;
+		BackgroundColor3 = Library.BackgroundColor;--MainColor;
 		BorderColor3 = Library.OutlineColor;
 		Position = UDim2.new(0, 8, 0, 8);
 		Size = UDim2.new(1, -16, 1, -16);
@@ -3699,7 +3770,7 @@ function Library:CreatePopout(Config)
 				Size += Element.AbsoluteSize.Y;
 			end;
 		end;
-		Outer.Size = UDim2.fromOffset(Config.Size.X, 16 + Size + (TabContainer.AbsolutePosition.Y - Outer.AbsolutePosition.Y));
+		Outer.Size = UDim2.fromOffset(Config.Size.X, 16 + Size + (TabContainer.AbsolutePosition.Y - Outer.AbsolutePosition.Y));--(1, 0, 0, 20 + Size + 2 + 2);
 	end;
 
 	function Window:Toggle()
@@ -3721,6 +3792,7 @@ function Library:CreatePopout(Config)
 
 	return Window;
 end;
+
 
 local udim2_new, colorsequence_new, colorsequencekeypoint_new = UDim2.new, ColorSequence.new, ColorSequenceKeypoint.new;
 function Library:Notify(Text, Time)
@@ -3850,6 +3922,7 @@ function Library:CreateWindow(...)
 		end;
 	end);
 
+
 	local Inner = Library:Create('Frame', {
 		BackgroundColor3 = Library.MainColor;
 		BorderColor3 = Library.AccentColor;
@@ -3874,16 +3947,16 @@ function Library:CreateWindow(...)
 		Parent = Inner;
 	});
 
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
+	--local VersionLabel = Library:CreateLabel({
+	--	Position = UDim2.new(0, -8, 0, 0);
+	--	Size = UDim2.new(1, 0, 0, 25);
+	--	Text = Config.Version or '';
+	--	TextColor3 = Config.VersionColor;
+	--	RichText = true;
+	--	TextXAlignment = Enum.TextXAlignment.Right;
+	--	ZIndex = 1;
+	--	Parent = Inner;
+	--});
 
 	local VersionLabel = Library:Create('TextLabel', {
 		BackgroundTransparency = 1;
@@ -3927,7 +4000,7 @@ function Library:CreateWindow(...)
 		BackgroundColor3 = 'BackgroundColor';
 	});
 
-	
+	-- vertical left sidebar for tabs
 	local SidebarWidth = 100;
 
 	local TabArea = Library:Create('ScrollingFrame', {
@@ -3980,7 +4053,7 @@ function Library:CreateWindow(...)
 		WindowLabel.Text = Title;
 	end;
 
-	
+	-- shared helper: build per-letter labels inside parentFrame
 	local function buildLetterLabels(text, parentFrame, rightAlign)
 		local letters = {};
 		local function build()
@@ -4025,7 +4098,7 @@ function Library:CreateWindow(...)
 		return letters;
 	end;
 
-	
+	-- edges-inward order for n letters
 	local function edgesOrder(n)
 		local o = {};
 		for i = 1, math.ceil(n / 2) do
@@ -4035,7 +4108,7 @@ function Library:CreateWindow(...)
 		return o;
 	end;
 
-	
+	-- ColoredTitle: letters pulse to FadeColor edges-inward then back to FontColor
 	if Config.ColoredTitle and Config.Title and #Config.Title > 0 then
 		WindowLabel.Text = '';
 		local letters = buildLetterLabels(Config.Title, Inner, false);
@@ -4068,7 +4141,7 @@ function Library:CreateWindow(...)
 		end);
 	end;
 
-	
+	-- ColoredVersion: same on version string, right-aligned
 	if Config.ColoredVersion and Config.Version and #tostring(Config.Version) > 0 then
 		VersionLabel.Text = '';
 		local ver = tostring(Config.Version);
@@ -4102,7 +4175,7 @@ function Library:CreateWindow(...)
 		end);
 	end;
 
-	
+	-- FadingName: letters go invisible edges-inward then reappear center-outward
 	if Config.FadingName and Config.Title and #Config.Title > 0 then
 		if not Config.ColoredTitle then WindowLabel.Text = '' end;
 		local letters = buildLetterLabels(Config.Title, Inner, false);
@@ -4134,7 +4207,9 @@ function Library:CreateWindow(...)
 		end);
 	end;
 
+
 	function Window:AddTab(Name)
+
 
 		local Tab = {
 			Groupboxes = {};
@@ -4286,7 +4361,7 @@ function Library:CreateWindow(...)
 			local BoxInner = Library:Create('Frame', {
 				BackgroundColor3 = Library.BackgroundColor;
 				BorderColor3 = Color3.new(0, 0, 0);
-				
+				-- BorderMode = Enum.BorderMode.Inset;
 				Size = UDim2.new(1, -2, 1, -2);
 				Position = UDim2.new(0, 1, 0, 1);
 				ZIndex = 4;
@@ -4393,7 +4468,7 @@ function Library:CreateWindow(...)
 			local BoxInner = Library:Create('Frame', {
 				BackgroundColor3 = Library.BackgroundColor;
 				BorderColor3 = Color3.new(0, 0, 0);
-				
+				-- BorderMode = Enum.BorderMode.Inset;
 				Size = UDim2.new(1, -2, 1, -2);
 				Position = UDim2.new(0, 1, 0, 1);
 				ZIndex = 4;
@@ -4556,7 +4631,7 @@ function Library:CreateWindow(...)
 				Tab:AddBlank(3);
 				Tab:Resize();
 
-				
+				-- Show first tab (number is 2 cus of the UIListLayout that also sits in that instance)
 				if #TabboxButtons:GetChildren() == 2 then
 					Tab:Show();
 				end;
@@ -4590,7 +4665,7 @@ function Library:CreateWindow(...)
 			end;
 		end);
 
-		
+		-- This was the first tab added, so we show it by default.
 		if #TabContainer:GetChildren() == 1 then
 			Tab:ShowTab();
 		end;
@@ -4627,7 +4702,7 @@ function Library:CreateWindow(...)
 		ModalElement.Modal = Toggled;
 
 		if Toggled then
-			
+			-- A bit scuffed, but if we're going from not toggled -> toggled we want to show the frame immediately so that the fade is visible.
 			Outer.Visible = true;
 			local guiservice = game:GetService("GuiService");
 			task.spawn(function()
