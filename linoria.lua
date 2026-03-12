@@ -513,45 +513,6 @@ function Library:GiveSignal(Signal)
 	table.insert(Library.Signals, Signal)
 end
 
--- watermark state (hooks into the existing Library.Watermark frame set up later)
-Library.WatermarkEnabled = false;
-Library.WatermarkParts = {};  -- e.g. { ['game name']=true, ['executor']=true, ['utc date']=true }
-
-function Library:UpdateWatermark()
-	local frame = Library.Watermark;
-	local label = Library.WatermarkText;
-	if not frame or not label then return end;
-	if not Library.WatermarkEnabled then
-		Library:SetWatermarkVisibility(false);
-		return;
-	end;
-	Library:SetWatermarkVisibility(true);
-	local parts = { 'CyanGen' };
-	if Library.WatermarkParts['game name'] then
-		local ok, name = pcall(function() return game:GetService('MarketplaceService'):GetProductInfo(game.PlaceId).Name end);
-		table.insert(parts, ok and name or tostring(game.PlaceId));
-	end;
-	if Library.WatermarkParts['executor'] then
-		local exec = 'unknown';
-		if identifyexecutor then pcall(function() exec = identifyexecutor() end) end;
-		table.insert(parts, exec);
-	end;
-	if Library.WatermarkParts['utc date'] then
-		table.insert(parts, os.date('!%Y-%m-%d %H:%M UTC'));
-	end;
-	label.Text = table.concat(parts, ' - ');
-end;
-
--- update every second for utc date clock
-task.spawn(function()
-	while Library.ScreenGui do
-		task.wait(1);
-		if Library.WatermarkEnabled then
-			Library:UpdateWatermark();
-		end;
-	end;
-end);
-
 function Library:Unload()
 	-- Unload all of the signals
 	for Idx = #Library.Signals, 1, -1 do
