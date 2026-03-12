@@ -186,32 +186,38 @@ function Library:CreateLabel(Properties, IsHud)
 	return Library:Create(_Instance, Properties);
 end;
 
-function Library:MakeDraggable(Instance, Cutoff)
-	Instance.Active = true;
+function Library:MakeDraggable(TitleBar, WindowOuter)
+	-- WindowOuter is the frame to actually move; TitleBar is just the hit zone.
+	-- If WindowOuter is omitted, the element moves itself (watermark, keypicker).
+	local Target = WindowOuter or TitleBar;
+	TitleBar.Active = true;
 
-	Instance.InputBegan:Connect(function(Input)
-		if Input.UserInputType == Enum.UserInputType.MouseButton1 then
-			local ObjPos = Vector2.new(
-				Mouse.X - Instance.AbsolutePosition.X,
-				Mouse.Y - Instance.AbsolutePosition.Y
-			);
+	TitleBar.InputBegan:Connect(function(Input)
+		if Input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end;
 
-			if ObjPos.Y > (Cutoff or 40) then
-				return;
-			end;
+		local ap = Target.AbsolutePosition;
+		local ObjPos = Vector2.new(Mouse.X - ap.X, Mouse.Y - ap.Y);
 
-			while InputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) do
-				Instance.Position = UDim2.new(
-					0,
-					Mouse.X - ObjPos.X + (Instance.Size.X.Offset * Instance.AnchorPoint.X),
-					0,
-					Mouse.Y - ObjPos.Y + (Instance.Size.Y.Offset * Instance.AnchorPoint.Y)
-				);
+		local frame = Library:Create("Frame", {
+			Parent               = DraggingGui;
+			BackgroundTransparency = 1;
+			Size                 = Target.Size;
+			Position             = Target.Position;
+		});
+		local uistroke = Library:Create("UIStroke", {
+			Parent = frame;
+			Color  = Library.AccentColor or Color3.new(0, 0, 0);
+		});
 
-				RenderStepped:Wait();
-			end;
+		while InputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) do
+			frame.Position = UDim2.fromOffset(Mouse.X - ObjPos.X, Mouse.Y - ObjPos.Y);
+			uistroke.Color = Library.AccentColor or Color3.new(0, 0, 0);
+			RenderStepped:Wait();
 		end;
-	end)
+
+		Target.Position = UDim2.fromOffset(Mouse.X - ObjPos.X, Mouse.Y - ObjPos.Y);
+		frame:Destroy();
+	end);
 end;
 
 function Library:MakeResizable(Outer, OnResize)
@@ -3640,7 +3646,7 @@ function Library:CreatePopout(Config)
 		Parent = ScreenGui;
 	});
 
-	Library:MakeDraggableOutline(Outer, 25);
+	Library:MakeDraggableOutline(Outer, 25); -- REMOVED: replaced by WindowLabel drag below
 
 	local Inner = Library:Create('Frame', {
 		BackgroundColor3 = Library.MainColor;
@@ -3666,15 +3672,8 @@ function Library:CreatePopout(Config)
 		Parent = Inner;
 	});
 
-	local VersionLabel = Library:CreateLabel({
-		Position = UDim2.new(0, -8, 0, 0);
-		Size = UDim2.new(1, 0, 0, 25);
-		Text = Config.Version or '';
-		RichText = true;
-		TextXAlignment = Enum.TextXAlignment.Right;
-		ZIndex = 1;
-		Parent = Inner;
-	});
+	-- drag the whole window by clicking the title bar label only
+	Library:MakeDraggable(WindowLabel, Outer);
 
 	local MainSectionOuter = Library:Create('Frame', {
 		BackgroundColor3 = Library.BackgroundColor;
@@ -3896,7 +3895,7 @@ function Library:CreateWindow(...)
 		Parent = ScreenGui;
 	});
 
-	Library:MakeDraggableOutline(Outer, 25);
+	Library:MakeDraggableOutline(Outer, 25); -- REMOVED: replaced by WindowLabel drag below
 
 	local ScrollFrames = {};
 
@@ -3933,6 +3932,9 @@ function Library:CreateWindow(...)
 		ZIndex = 1;
 		Parent = Inner;
 	});
+
+	-- drag the whole window by clicking the title bar only
+	Library:MakeDraggable(WindowLabel, Outer);
 
 	--local VersionLabel = Library:CreateLabel({
 	--	Position = UDim2.new(0, -8, 0, 0);
@@ -4721,7 +4723,9 @@ function Library:CreateWindow(...)
 				while Toggled and ScreenGui.Parent do
 					InputService.MouseIconEnabled = false;
 					local mPos = InputService:GetMouseLocation();
-					local udim = UDim2.fromOffset(mPos.X, mPos.Y - guiservice:GetGuiInset().Y - 1);
+					-- IgnoreGuiInset=true means the ScreenGui origin is already at (0,0)
+					-- so we just use raw mouse position with no inset subtraction
+					local udim = UDim2.fromOffset(mPos.X, mPos.Y);
 					Cursor.ImageColor3 = Library.AccentColor;
 					Cursor.Position, CursorOutline.Position = udim, udim - UDim2.fromOffset(1, 1);
 					RenderStepped:Wait();
@@ -4737,36 +4741,52 @@ function Library:CreateWindow(...)
 		end;
 
 		if (not Config.DontFade) then
-			Outer.Parent = ScreenGui;
-
 			if Library.FadingAnimation then
 				if Toggled then
-					-- grow from small to full size, fade in
-					local fullSize = Outer.Size;
-					local cx = Outer.Position.X.Offset + Outer.AbsoluteSize.X / 2;
-					local cy = Outer.Position.Y.Offset + Outer.AbsoluteSize.Y / 2;
-					Outer.Size = UDim2.fromOffset(fullSize.X.Offset * 0.85, fullSize.Y.Offset * 0.85);
-					Outer.Position = UDim2.fromOffset(
-						cx - Outer.AbsoluteSize.X / 2,
-						cy - Outer.AbsoluteSize.Y / 2
-					);
+					-- opening: snap to 85%, show, then tween grow back to full size
+					local fullSize = Library.UISize or Outer.Size;
+					local fullPos  = Library._SavedPosition or Outer.Position;
+					local cx = fullPos.X.Offset + fullSize.X.Offset / 2;
+					local cy = fullPos.Y.Offset + fullSize.Y.Offset / 2;
+					local smallW = fullSize.X.Offset * 0.85;
+					local smallH = fullSize.Y.Offset * 0.85;
+					Outer.Size     = UDim2.fromOffset(smallW, smallH);
+					Outer.Position = UDim2.fromOffset(cx - smallW / 2, cy - smallH / 2);
+					Outer.Visible  = true;
+					Outer.Parent   = ScreenGui;
 					TweenService:Create(Outer, TweenInfo.new(FadeTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-						Size = fullSize;
+						Size     = fullSize;
+						Position = fullPos;
 					}):Play();
+					task.wait(FadeTime);
 				else
-					-- shrink to 85%, then hide
+					-- closing: save position, tween shrink to 85%, then hide
 					local fullSize = Outer.Size;
-					local cx = Outer.Position.X.Offset + Outer.AbsoluteSize.X / 2;
-					local cy = Outer.Position.Y.Offset + Outer.AbsoluteSize.Y / 2;
-					local shrinkW = fullSize.X.Offset * 0.85;
-					local shrinkH = fullSize.Y.Offset * 0.85;
+					local fullPos  = Outer.Position;
+					Library._SavedPosition = fullPos;
+					Library.UISize = fullSize;
+					local cx = fullPos.X.Offset + fullSize.X.Offset / 2;
+					local cy = fullPos.Y.Offset + fullSize.Y.Offset / 2;
+					local smallW = fullSize.X.Offset * 0.85;
+					local smallH = fullSize.Y.Offset * 0.85;
 					TweenService:Create(Outer, TweenInfo.new(FadeTime, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-						Size     = UDim2.fromOffset(shrinkW, shrinkH);
-						Position = UDim2.fromOffset(cx - shrinkW / 2, cy - shrinkH / 2);
+						Size     = UDim2.fromOffset(smallW, smallH);
+						Position = UDim2.fromOffset(cx - smallW / 2, cy - smallH / 2);
 					}):Play();
+					task.wait(FadeTime);
+					Outer.Visible = false;
+					Outer.Parent  = nil;
+					Fading = false;
+					return;
 				end;
+			else
+				-- no animation: just show or hide instantly
+				Outer.Visible = Toggled;
+				Outer.Parent  = Toggled and ScreenGui or nil;
+				task.wait(FadeTime);
 			end;
 
+			-- transparency fade for all descendants
 			for _, Desc in next, Outer:GetDescendants() do
 				local Properties = {};
 
@@ -4800,12 +4820,10 @@ function Library:CreateWindow(...)
 					TweenService:Create(Desc, TweenInfo.new(FadeTime, Enum.EasingStyle.Linear), { [Prop] = Toggled and Cache[Prop] or 1 }):Play();
 				end;
 			end;
-			task.wait(FadeTime);
 		end;
 
 		Outer.Visible = Toggled;
-
-		Outer.Parent = Toggled and ScreenGui or nil;
+		Outer.Parent  = Toggled and ScreenGui or nil;
 
 		Fading = false;
 	end
