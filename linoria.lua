@@ -7,7 +7,22 @@ local RunService = game:GetService('RunService')
 local TweenService = game:GetService('TweenService');
 local RenderStepped = RunService.RenderStepped;
 local LocalPlayer = Players.LocalPlayer;
-local Mouse = cloneref(LocalPlayer:GetMouse());
+local _RawMouse = cloneref(LocalPlayer:GetMouse());
+local _GuiService = game:GetService('GuiService');
+-- With IgnoreGuiInset=true the ScreenGui origin is the real screen top-left.
+-- GetMouseLocation() returns raw screen coords matching that space.
+local Mouse = setmetatable({}, {
+	__index = function(_, k)
+		if k == 'X' then return InputService:GetMouseLocation().X end;
+		if k == 'Y' then return InputService:GetMouseLocation().Y end;
+		return _RawMouse[k];
+	end;
+});
+-- AbsolutePosition always includes GuiInset in Y. Subtract when placing UI in IgnoreGuiInset=true space.
+local function AbsToGui(absPos)
+	local inset = _GuiService:GetGuiInset();
+	return Vector2.new(absPos.X, absPos.Y - inset.Y);
+end;
 
 local ProtectGui = protectgui or (syn and syn.protect_gui) or (function() end);
 
