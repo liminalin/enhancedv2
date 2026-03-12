@@ -967,7 +967,7 @@ do
 		local ContextMenu = Library:AddContextMenu(DisplayFrame);
 		ContextMenu:AddOption('Make gradient', function()
 			local colorpickers = { };
-			for _, addon in next, ToggleParent.Addons do
+			for _, addon in ToggleParent.Addons do
 				if (addon.Type == "ColorPicker") then
 					table.insert(colorpickers, addon);
 				end;
@@ -989,12 +989,12 @@ do
 		end)
 		ContextMenu:AddOption('Match color', function()
 			local colorpickers = { };
-			for _, addon in next, ToggleParent.Addons do
+			for _, addon in ToggleParent.Addons do
 				if (addon.Type == "ColorPicker") then
 					table.insert(colorpickers, addon);
 				end;
 			end;
-			for _, addon in next, colorpickers do
+			for _, addon in colorpickers do
 				addon:SetValueRGB(ColorPicker.Value, addon.Transparency);
 			end;
 			Library:Notify('matched all colors!', 2);
@@ -1265,7 +1265,7 @@ do
 		};
 
 		if KeyPicker.SyncToggleState then
-			Info.Modes = { 'Toggle', 'Unbind' }
+			Info.Modes = { 'Toggle' }
 			Info.Mode = 'Toggle'
 		end
 
@@ -1342,7 +1342,7 @@ do
 			Parent = Library.KeybindContainer;
 		},  true);
 
-		local Modes = Info.Modes or { 'Always', 'Toggle', 'Hold', 'Unbind' };
+		local Modes = Info.Modes or { 'Always', 'Toggle', 'Hold' };
 		local ModeButtons = {};
 
 		--[[for Idx, Mode in next, Modes do
@@ -1394,46 +1394,43 @@ do
 		local contextmenu = Library:AddContextMenu(PickOuter);
 
 		local buttons = { };
-		for index, mode in next, Modes do
+		for index, mode in Modes do
 			local button;
-			if mode == 'Unbind' then
-				button = contextmenu:AddOption(mode, function()
-					-- Unbind is an action: reset key to None and revert mode to Toggle
-					KeyPicker.Value = 'None';
-					KeyPicker.Mode = 'Toggle';
-					KeyPicker.Toggled = false;
-					DisplayLabel.Text = 'None';
-					contextmenu:Hide();
-					for _mode, _button in next, buttons do
-						_button.TextColor3 = _mode == KeyPicker.Mode and Library.AccentColor or Library.FontColor;
+			button = contextmenu:AddOption(mode, function()
+				KeyPicker.Mode = mode;
+				button.TextColor3 = Library.AccentColor;
+				for mode, _button in buttons do
+					if (_button ~= button) then
+						_button.TextColor3 = mode == KeyPicker.Mode and Library.AccentColor or Library.FontColor;
 					end;
-					KeyPicker:Update();
-					Library:SafeCallback(KeyPicker.Changed, Enum.KeyCode.Unknown);
-					Library:AttemptSave();
-				end);
-			else
-				button = contextmenu:AddOption(mode, function()
-					KeyPicker.Mode = mode;
-					button.TextColor3 = Library.AccentColor;
-					for _mode, _button in next, buttons do
-						if (_button ~= button) then
-							_button.TextColor3 = _mode == KeyPicker.Mode and Library.AccentColor or Library.FontColor;
-						end;
-					end;
-					Library:AttemptSave();
-				end);
-			end;
+				end;
+				Library:AttemptSave();
+				--Library.RegistryMap[Label].Properties.TextColor3 = 'AccentColor';
+				--ModeSelectOuter.Visible = false;
+			end);
 			button:GetPropertyChangedSignal("TextColor3"):Connect(function()
-				if mode ~= 'Unbind' then
-					if mode == KeyPicker.Mode then
-						button.TextColor3 = Library.AccentColor;
-					else
-						button.TextColor3 = Library.FontColor;
-					end;
+				if (mode == KeyPicker.Mode) then
+					button.TextColor3 = Library.AccentColor;
+				else
+					button.TextColor3 = Library.FontColor;
 				end;
 			end);
 			buttons[mode] = button;
 		end;
+
+		contextmenu:AddOption('Unbind', function()
+			KeyPicker.Value = 'None';
+			KeyPicker.Mode = 'Toggle';
+			KeyPicker.Toggled = false;
+			DisplayLabel.Text = 'None';
+			contextmenu:Hide();
+			for mode, button in buttons do
+				button.TextColor3 = mode == KeyPicker.Mode and Library.AccentColor or Library.FontColor;
+			end;
+			KeyPicker:Update();
+			Library:SafeCallback(KeyPicker.Changed, KeyPicker.Value);
+			Library:AttemptSave();
+		end)
 
 		contextmenu:AddOption('Copy Flag', function()
 			pcall(setclipboard, KeyPicker.Idx)
@@ -1441,10 +1438,8 @@ do
 			contextmenu:Hide();
 		end)
 
-		for mode, button in next, buttons do
-			if mode ~= 'Unbind' then
-				button.TextColor3 = mode == KeyPicker.Mode and Library.AccentColor or Library.FontColor;
-			end;
+		for mode, button in buttons do
+			button.TextColor3 = mode == KeyPicker.Mode and Library.AccentColor or Library.FontColor;
 		end;
 		local update = function(State)
 			local mode = KeyPicker.Mode;
@@ -1530,7 +1525,7 @@ do
 			local Key, Mode = Data[1], Data[2];
 			DisplayLabel.Text = Key;
 			KeyPicker.Value, KeyPicker.Mode = Key, Mode;
-			for mode, button in next, buttons do
+			for mode, button in buttons do
 				button.TextColor3 = mode == KeyPicker.Mode and Library.AccentColor or Library.FontColor;
 			end;
 			KeyPicker:Update();
@@ -1570,7 +1565,7 @@ do
 		function KeyPicker:Remove()
 			Options[Idx] = nil;
 
-			for _, connection in next, KeyPicker.Connections do
+			for _, connection in KeyPicker.Connections do
 				connection:Disconnect();
 			end;
 
@@ -1749,7 +1744,7 @@ do
 		end
 		local Blanks = { };
 		function Label:Remove()
-			for _, blank in next, Blanks do
+			for _, blank in Blanks do
 				blank:Destroy();
 			end;
 			TextLabel:Destroy();
@@ -1947,7 +1942,7 @@ do
 
 		local Blanks = { };
 		function Button:Remove()
-			for _, blank in next, Blanks do
+			for _, blank in Blanks do
 				blank:Destroy();
 			end;
 			Button.Outer:Destroy();
@@ -2185,7 +2180,7 @@ do
 		end;
 
 		function Textbox:Remove()
-			for _, blank in next, Blanks do
+			for _, blank in Blanks do
 				blank:Destroy();
 			end;
 			Options[Idx] = nil;
@@ -2385,7 +2380,7 @@ do
 		end;
 
 		function Toggle:Remove()
-			for _, blank in next, Blanks do
+			for _, blank in Blanks do
 				blank:Destroy();
 			end;
 			Toggles[Idx] = nil;
@@ -2600,7 +2595,7 @@ do
 		end;
 
 		function Slider:Remove()
-			for _, blank in next, Blanks do
+			for _, blank in Blanks do
 				blank:Destroy();
 			end;
 			Options[Idx] = nil;
@@ -3117,7 +3112,7 @@ do
 		end;
 
 		function Dropdown:Remove()
-			for _, blank in next, Blanks do
+			for _, blank in Blanks do
 				blank:Destroy();
 			end;
 			Options[Idx] = nil;
