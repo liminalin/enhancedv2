@@ -53,7 +53,7 @@ local Library = {
 	};
 
 	KeypickerListVisible = true;
-	KeypickerListMode = "All";
+	KeypickerListMode = "All"; --[[
 		{
 			"Active",
 			"Toggled",
@@ -4672,6 +4672,7 @@ function Library:CreateWindow(...)
 	local TransparencyCache = {};
 	local Toggled = false;
 	local Fading = false;
+	local FullWindowSize = nil;
 
 	function Library:Toggle()
 		if Fading then
@@ -4734,17 +4735,16 @@ function Library:CreateWindow(...)
 
 			if Library.FadingAnimation then
 				if Toggled then
-					-- grow from 85% + fully transparent to full size + opaque
-					local fullW = Outer.AbsoluteSize.X;
-					local fullH = Outer.AbsoluteSize.Y;
-					local cx = Outer.AbsolutePosition.X + fullW / 2;
-					local cy = Outer.AbsolutePosition.Y + fullH / 2;
+					-- grow from 85% + transparent back to full original size
+					local fullW = FullWindowSize and FullWindowSize.X or Outer.AbsoluteSize.X;
+					local fullH = FullWindowSize and FullWindowSize.Y or Outer.AbsoluteSize.Y;
 					local smallW = fullW * 0.85;
 					local smallH = fullH * 0.85;
+					local cx = Outer.AbsolutePosition.X + Outer.AbsoluteSize.X / 2;
+					local cy = Outer.AbsolutePosition.Y + Outer.AbsoluteSize.Y / 2;
 					Outer.AnchorPoint = Vector2.new(0, 0);
 					Outer.Size = UDim2.fromOffset(smallW, smallH);
 					Outer.Position = UDim2.fromOffset(cx - smallW / 2, cy - smallH / 2);
-					-- set all descendants fully transparent before tweening in
 					for _, Desc in next, Outer:GetDescendants() do
 						if Desc:IsA('TextLabel') or Desc:IsA('TextBox') then
 							Desc.TextTransparency = 1;
@@ -4761,9 +4761,10 @@ function Library:CreateWindow(...)
 						Position = UDim2.fromOffset(cx - fullW / 2, cy - fullH / 2);
 					}):Play();
 				else
-					-- shrink to 85% while fading out
-					local fullW = Outer.AbsoluteSize.X;
-					local fullH = Outer.AbsoluteSize.Y;
+					-- save full size, then shrink + fade out
+					FullWindowSize = Vector2.new(Outer.AbsoluteSize.X, Outer.AbsoluteSize.Y);
+					local fullW = FullWindowSize.X;
+					local fullH = FullWindowSize.Y;
 					local cx = Outer.AbsolutePosition.X + fullW / 2;
 					local cy = Outer.AbsolutePosition.Y + fullH / 2;
 					local shrinkW = fullW * 0.85;
