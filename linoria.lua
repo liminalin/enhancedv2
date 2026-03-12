@@ -2412,11 +2412,11 @@ do
 	end;
 
 	function Funcs:AddSlider(Idx, Info, SliderParent)
-		assert(Info.Default, 'AddSlider: Missing default value.');
+		assert(Info.Default ~= nil, 'AddSlider: Missing default value.');
 		assert(Info.Text, 'AddSlider: Missing slider text.');
-		assert(Info.Min, 'AddSlider: Missing minimum value.');
-		assert(Info.Max, 'AddSlider: Missing maximum value.');
-		assert(Info.Rounding, 'AddSlider: Missing rounding value.');
+		assert(Info.Min ~= nil, 'AddSlider: Missing minimum value.');
+		assert(Info.Max ~= nil, 'AddSlider: Missing maximum value.');
+		assert(Info.Rounding ~= nil, 'AddSlider: Missing rounding value.');
 
 		local Blanks = { };
 		local Slider = {
