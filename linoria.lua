@@ -30,6 +30,15 @@ ScreenGui.Parent = CoreGui;
 ScreenGui.DisplayOrder = 20;
 ScreenGui.IgnoreGuiInset = true;
 
+-- AbsolutePosition always returns screen-space coords with GuiInset baked in.
+-- Our ScreenGui has IgnoreGuiInset=true so its origin is the real screen top-left.
+-- Use AbsToGui() whenever converting AbsolutePosition to a UDim2.fromOffset position.
+local _GuiService = game:GetService('GuiService');
+local function AbsToGui(absPos)
+	local inset = _GuiService:GetGuiInset();
+	return Vector2.new(absPos.X, absPos.Y - inset.Y);
+end;
+
 local Toggles = {};
 local Options = {};
 
@@ -200,7 +209,7 @@ function Library:MakeDraggable(Instance, Cutoff)
 		if Input.UserInputType == Enum.UserInputType.MouseButton1 then
 			local ObjPos = Vector2.new(
 				Mouse.X - Instance.AbsolutePosition.X,
-				Mouse.Y - Instance.AbsolutePosition.Y
+				Mouse.Y - (Instance.AbsolutePosition.Y - _GuiService:GetGuiInset().Y)
 			);
 
 			if ObjPos.Y > (Cutoff or 40) then
@@ -230,7 +239,7 @@ function Library:MakeResizable(Outer, OnResize)
 
 	-- detect if mouse is in the bottom-right corner of Outer
 	local function inResizeZone()
-		local ap = Outer.AbsolutePosition;
+		local ap = AbsToGui(Outer.AbsolutePosition);
 		local as = Outer.AbsoluteSize;
 		local mx, my = Mouse.X, Mouse.Y;
 		return mx >= (ap.X + as.X - HitZone) and my >= (ap.Y + as.Y - HitZone)
@@ -248,7 +257,7 @@ function Library:MakeResizable(Outer, OnResize)
 
 	-- keep handle position synced to bottom-right of Outer
 	local function updateHandlePos()
-		local ap = Outer.AbsolutePosition;
+		local ap = AbsToGui(Outer.AbsolutePosition);
 		local as = Outer.AbsoluteSize;
 		Handle.Position = UDim2.fromOffset(ap.X + as.X - HitZone, ap.Y + as.Y - HitZone);
 	end;
@@ -297,7 +306,7 @@ function Library:MakeDraggableOutline(TitleBar, WindowOuter)
 		if not Target.Parent then return end;
 
 		local ap = Target.AbsolutePosition;
-		local ObjPos = Vector2.new(Mouse.X - ap.X, Mouse.Y - ap.Y);
+		local ObjPos = Vector2.new(Mouse.X - ap.X, Mouse.Y - (ap.Y - _GuiService:GetGuiInset().Y));
 
 		local frame = Library:Create("Frame", {
 			Parent = DraggingGui;
@@ -406,7 +415,8 @@ end;
 
 function Library:MouseIsOverOpenedFrame()
 	for Frame, _ in next, Library.OpenedFrames do
-		local AbsPos, AbsSize = Frame.AbsolutePosition, Frame.AbsoluteSize;
+		local AbsPos = AbsToGui(Frame.AbsolutePosition);
+		local AbsSize = Frame.AbsoluteSize;
 
 		if Mouse.X >= AbsPos.X and Mouse.X <= AbsPos.X + AbsSize.X
 			and Mouse.Y >= AbsPos.Y and Mouse.Y <= AbsPos.Y + AbsSize.Y then
@@ -417,7 +427,8 @@ function Library:MouseIsOverOpenedFrame()
 end;
 
 function Library:IsMouseOverFrame(Frame)
-	local AbsPos, AbsSize = Frame.AbsolutePosition, Frame.AbsoluteSize;
+	local AbsPos = AbsToGui(Frame.AbsolutePosition);
+	local AbsSize = Frame.AbsoluteSize;
 
 	if Mouse.X >= AbsPos.X and Mouse.X <= AbsPos.X + AbsSize.X
 		and Mouse.Y >= AbsPos.Y and Mouse.Y <= AbsPos.Y + AbsSize.Y then
@@ -582,9 +593,10 @@ function Library:AddContextMenu(DisplayFrame, hitbox)
 	});
 
 	local function updateMenuPosition()
+		local p = AbsToGui(DisplayFrame.AbsolutePosition);
 		ContextMenu.Container.Position = UDim2.fromOffset(
-			(DisplayFrame.AbsolutePosition.X + DisplayFrame.AbsoluteSize.X) + 4,
-			DisplayFrame.AbsolutePosition.Y + 1
+			p.X + DisplayFrame.AbsoluteSize.X + 4,
+			p.Y + 1
 		)
 	end
 
@@ -754,7 +766,7 @@ do
 			Name = 'Color';
 			BackgroundColor3 = Color3.new(1, 1, 1);
 			BorderColor3 = Color3.new(0, 0, 0);
-			Position = UDim2.fromOffset(DisplayFrame.AbsolutePosition.X, DisplayFrame.AbsolutePosition.Y + 18),
+			Position = UDim2.fromOffset(AbsToGui(DisplayFrame.AbsolutePosition).X, AbsToGui(DisplayFrame.AbsolutePosition).Y + 18),
 			Size = UDim2.fromOffset(230, Info.Transparency and 271 or 253);
 			Visible = false;
 			ZIndex = 15;
@@ -762,7 +774,8 @@ do
 		});
 
 		DisplayFrame:GetPropertyChangedSignal('AbsolutePosition'):Connect(function()
-			PickerFrameOuter.Position = UDim2.fromOffset(DisplayFrame.AbsolutePosition.X, DisplayFrame.AbsolutePosition.Y + 18);
+			local p = AbsToGui(DisplayFrame.AbsolutePosition);
+			PickerFrameOuter.Position = UDim2.fromOffset(p.X, p.Y + 18);
 		end)
 
 		local PickerFrameInner = Library:Create('Frame', {
@@ -1211,7 +1224,8 @@ do
 			if (not _visible) then
 				return;
 			end;
-			local AbsPos, AbsSize = PickerFrameOuter.AbsolutePosition, PickerFrameOuter.AbsoluteSize;
+			local AbsPos = AbsToGui(PickerFrameOuter.AbsolutePosition);
+			local AbsSize = PickerFrameOuter.AbsoluteSize;
 			if (Mouse.X < AbsPos.X or Mouse.X > AbsPos.X + AbsSize.X or Mouse.Y < (AbsPos.Y - 20 - 1) or Mouse.Y > AbsPos.Y + AbsSize.Y) then
 				ColorPicker:Hide();
 			end;
@@ -2824,7 +2838,8 @@ do
 		});
 
 		local function RecalculateListPosition()
-			ListOuter.Position = UDim2.fromOffset(DropdownOuter.AbsolutePosition.X, DropdownOuter.AbsolutePosition.Y + DropdownOuter.Size.Y.Offset + 1);
+			local p = AbsToGui(DropdownOuter.AbsolutePosition);
+			ListOuter.Position = UDim2.fromOffset(p.X, p.Y + DropdownOuter.Size.Y.Offset + 1);
 		end;
 
 		local function RecalculateListSize(YSize)
@@ -3117,7 +3132,8 @@ do
 			if (not _visible) then
 				return;
 			end;
-			local AbsPos, AbsSize = ListOuter.AbsolutePosition, ListOuter.AbsoluteSize;
+			local AbsPos = AbsToGui(ListOuter.AbsolutePosition);
+			local AbsSize = ListOuter.AbsoluteSize;
 			if Mouse.X < AbsPos.X or Mouse.X > AbsPos.X + AbsSize.X
 				or Mouse.Y < (AbsPos.Y - 20 - 1) or Mouse.Y > AbsPos.Y + AbsSize.Y then
 
