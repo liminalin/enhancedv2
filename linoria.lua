@@ -4100,13 +4100,12 @@ function Library:CreateWindow(...)
 					end;
 				end;
 
-				-- fade out edges inward
+				-- fade out edges inward to FadeColor
 				for _, idx in ipairs(order) do
 					if not (getParent() and getParent().Parent) then break end;
 					local lbl = letters[idx];
 					if lbl and lbl.Parent then
 						TweenService:Create(lbl, TweenInfo.new(fadeTime), {
-							TextTransparency = 1;
 							TextColor3 = fadeColor;
 						}):Play();
 					end;
@@ -4115,7 +4114,7 @@ function Library:CreateWindow(...)
 
 				task.wait(fadeTime);
 
-				-- fade back in center outward (reverse of order)
+				-- fade back in center outward to FontColor
 				local revOrder = {};
 				for i = #order, 1, -1 do table.insert(revOrder, order[i]) end;
 
@@ -4124,7 +4123,6 @@ function Library:CreateWindow(...)
 					local lbl = letters[idx];
 					if lbl and lbl.Parent then
 						TweenService:Create(lbl, TweenInfo.new(fadeTime), {
-							TextTransparency = 0;
 							TextColor3 = Library.FontColor;
 						}):Play();
 					end;
@@ -4136,7 +4134,7 @@ function Library:CreateWindow(...)
 		end);
 	end;
 
-	if Config.FadingText and Config.Title and #Config.Title > 0 then
+	if Config.FadingTitle and Config.Title and #Config.Title > 0 then
 		WindowLabel.Text = '';
 		local letters = {};
 		local _, build = makeFadingLabel(Config.Title, Inner, false, 4, 2);
