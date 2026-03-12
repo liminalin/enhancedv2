@@ -279,6 +279,7 @@ function Library:MakeResizable(Outer, OnResize)
 end;
 
 local DraggingGui = Instance.new("ScreenGui", gethui());
+Library.DraggingGui = DraggingGui;
 function Library:MakeDraggableOutline(Instance, Cutoff)
 	Instance.Active = true;
 
