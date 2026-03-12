@@ -708,7 +708,8 @@ do
 		local ToggleLabel = self.TextLabel;
 		-- local Container = self.Container;
 
-		assert(Info.Default, 'AddColorPicker: Missing default value.');
+		assert(Info.Default ~= nil or true, 'AddColorPicker: Missing default value.');
+		Info.Default = Info.Default or Color3.new(1, 1, 1);
 
 		local ColorPicker = {
 			Value = Info.Default;
