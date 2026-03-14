@@ -1784,8 +1784,7 @@ do
 		return Label;
 	end;
 
-
-		-- TODO: Eventually redo this
+	function Funcs:AddButton(...)
 		local Button = {
 		};
 		local function ProcessButtonParams(Class, Obj, ...)
