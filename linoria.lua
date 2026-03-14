@@ -3811,6 +3811,223 @@ end;
 
 
 local udim2_new, colorsequence_new, colorsequencekeypoint_new = UDim2.new, ColorSequence.new, ColorSequenceKeypoint.new;
+
+-- // monarch internal execution ui
+do
+	local _execGui = nil;
+	local _execVisible = false;
+	local _execBox = nil;
+	local _blockedFuncs = {};
+
+	local function buildExecGui()
+		if _execGui and _execGui.Parent then return end;
+
+		local sg = Instance.new('ScreenGui');
+		sg.Name = 'MonarchExec';
+		sg.ResetOnSpawn = false;
+		sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling;
+		pcall(function() sg.IgnoreGuiInset = true end);
+		pcall(function() syn and syn.protect_gui(sg) end);
+		pcall(function()
+			sg.Parent = (gethui and gethui()) or game:GetService('CoreGui');
+		end);
+		if not sg.Parent then
+			sg.Parent = game:GetService('Players').LocalPlayer:WaitForChild('PlayerGui');
+		end;
+		_execGui = sg;
+
+		-- main frame
+		local W, H = 620, 420;
+		local vp = workspace.CurrentCamera.ViewportSize;
+		local Outer = Instance.new('Frame');
+		Outer.Size = UDim2.fromOffset(W, H);
+		Outer.Position = UDim2.fromOffset(math.floor((vp.X - W) / 2), math.floor((vp.Y - H) / 2));
+		Outer.BackgroundColor3 = Library.MainColor or Color3.fromRGB(30, 30, 30);
+		Outer.BorderColor3 = Library.AccentColor or Color3.fromRGB(54, 93, 171);
+		Outer.BorderSizePixel = 1;
+		Outer.ZIndex = 200;
+		Outer.Parent = sg;
+		Library:MakeDraggableOutline(Outer, 26);
+
+		-- title bar
+		local TitleBar = Instance.new('Frame');
+		TitleBar.Size = UDim2.new(1, 0, 0, 26);
+		TitleBar.BackgroundColor3 = Library.AccentColor or Color3.fromRGB(54, 93, 171);
+		TitleBar.BorderSizePixel = 0;
+		TitleBar.ZIndex = 201;
+		TitleBar.Parent = Outer;
+
+		local TitleLabel = Instance.new('TextLabel');
+		TitleLabel.Size = UDim2.new(1, -8, 1, 0);
+		TitleLabel.Position = UDim2.fromOffset(8, 0);
+		TitleLabel.BackgroundTransparency = 1;
+		TitleLabel.Text = 'monarch execution';
+		TitleLabel.TextColor3 = Color3.new(1, 1, 1);
+		TitleLabel.Font = Library.Font or Enum.Font.Code;
+		TitleLabel.TextSize = 14;
+		TitleLabel.TextXAlignment = Enum.TextXAlignment.Left;
+		TitleLabel.ZIndex = 202;
+		TitleLabel.Parent = TitleBar;
+
+		-- close button
+		local CloseBtn = Instance.new('TextButton');
+		CloseBtn.Size = UDim2.fromOffset(26, 26);
+		CloseBtn.Position = UDim2.new(1, -26, 0, 0);
+		CloseBtn.BackgroundTransparency = 1;
+		CloseBtn.Text = 'x';
+		CloseBtn.TextColor3 = Color3.new(1, 1, 1);
+		CloseBtn.Font = Library.Font or Enum.Font.Code;
+		CloseBtn.TextSize = 14;
+		CloseBtn.ZIndex = 202;
+		CloseBtn.Parent = TitleBar;
+		CloseBtn.MouseButton1Click:Connect(function()
+			Library:ToggleInternalExec();
+		end);
+
+		-- textbox area
+		local BoxFrame = Instance.new('Frame');
+		BoxFrame.Size = UDim2.new(1, -16, 1, -80);
+		BoxFrame.Position = UDim2.fromOffset(8, 34);
+		BoxFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15);
+		BoxFrame.BorderColor3 = Library.OutlineColor or Color3.fromRGB(60, 60, 60);
+		BoxFrame.BorderSizePixel = 1;
+		BoxFrame.ZIndex = 201;
+		BoxFrame.Parent = Outer;
+
+		local Box = Instance.new('TextBox');
+		Box.Size = UDim2.new(1, -8, 1, -8);
+		Box.Position = UDim2.fromOffset(4, 4);
+		Box.BackgroundTransparency = 1;
+		Box.Text = '';
+		Box.PlaceholderText = '-- write your code here';
+		Box.TextColor3 = Color3.new(1, 1, 1);
+		Box.PlaceholderColor3 = Color3.fromRGB(120, 120, 120);
+		Box.Font = Enum.Font.Code;
+		Box.TextSize = 14;
+		Box.TextXAlignment = Enum.TextXAlignment.Left;
+		Box.TextYAlignment = Enum.TextYAlignment.Top;
+		Box.MultiLine = true;
+		Box.ClearTextOnFocus = false;
+		Box.ZIndex = 202;
+		Box.Parent = BoxFrame;
+		_execBox = Box;
+
+		-- bottom bar
+		local BtnY = H - 38;
+
+		local function makeBtn(text, xOffset, w)
+			local b = Instance.new('TextButton');
+			b.Size = UDim2.fromOffset(w, 26);
+			b.Position = UDim2.fromOffset(xOffset, BtnY);
+			b.BackgroundColor3 = Library.AccentColor or Color3.fromRGB(54, 93, 171);
+			b.BorderSizePixel = 0;
+			b.Text = text;
+			b.TextColor3 = Color3.new(1, 1, 1);
+			b.Font = Library.Font or Enum.Font.Code;
+			b.TextSize = 13;
+			b.ZIndex = 201;
+			b.Parent = Outer;
+			return b;
+		end;
+
+		local ExecBtn = makeBtn('execute', 8, 80);
+		local ClearBtn = makeBtn('clear', 96, 60);
+
+		-- risky functions dropdown (simple frame)
+		local RiskyValues = {'setfflag', 'replicatesignal', 'getscriptclosure', 'writefile'};
+		local RiskySelected = {};
+
+		local RiskyBtn = makeBtn('risky: none', 164, 160);
+		local RiskyOpen = false;
+		local RiskyMenu = nil;
+
+		local function updateRiskyLabel()
+			local count = 0;
+			for _ in pairs(RiskySelected) do count = count + 1 end;
+			RiskyBtn.Text = count == 0 and 'risky: none' or ('risky: ' .. count .. ' blocked');
+			_blockedFuncs = RiskySelected;
+		end;
+
+		RiskyBtn.MouseButton1Click:Connect(function()
+			RiskyOpen = not RiskyOpen;
+			if RiskyMenu then RiskyMenu:Destroy(); RiskyMenu = nil end;
+			if not RiskyOpen then return end;
+			RiskyMenu = Instance.new('Frame');
+			RiskyMenu.Size = UDim2.fromOffset(160, #RiskyValues * 22 + 4);
+			RiskyMenu.Position = UDim2.fromOffset(164, BtnY - (#RiskyValues * 22 + 4));
+			RiskyMenu.BackgroundColor3 = Library.MainColor or Color3.fromRGB(30, 30, 30);
+			RiskyMenu.BorderColor3 = Library.AccentColor or Color3.fromRGB(54, 93, 171);
+			RiskyMenu.BorderSizePixel = 1;
+			RiskyMenu.ZIndex = 210;
+			RiskyMenu.Parent = Outer;
+			for i, name in ipairs(RiskyValues) do
+				local row = Instance.new('TextButton');
+				row.Size = UDim2.new(1, 0, 0, 22);
+				row.Position = UDim2.fromOffset(0, (i-1)*22 + 2);
+				row.BackgroundTransparency = 1;
+				row.Text = (RiskySelected[name] and '[x] ' or '[ ] ') .. name;
+				row.TextColor3 = Color3.new(1,1,1);
+				row.Font = Enum.Font.Code;
+				row.TextSize = 13;
+				row.TextXAlignment = Enum.TextXAlignment.Left;
+				row.ZIndex = 211;
+				row.Parent = RiskyMenu;
+				row.MouseButton1Click:Connect(function()
+					if RiskySelected[name] then
+						RiskySelected[name] = nil;
+					else
+						RiskySelected[name] = true;
+					end;
+					updateRiskyLabel();
+					row.Text = (RiskySelected[name] and '[x] ' or '[ ] ') .. name;
+				end);
+			end;
+		end);
+
+		ExecBtn.MouseButton1Click:Connect(function()
+			local code = Box.Text or '';
+			if code == '' then return end;
+			for fname in pairs(_blockedFuncs) do
+				if code:find(fname) then
+					Library:Notify('blocked: ' .. fname .. ' is in risky list', 4);
+					return;
+				end;
+			end;
+			local fn, err = loadstring(code);
+			if fn then
+				local ok, runErr = pcall(fn);
+				if not ok then Library:Notify('error: ' .. tostring(runErr), 4) end;
+			else
+				Library:Notify('syntax: ' .. tostring(err), 4);
+			end;
+		end);
+
+		ClearBtn.MouseButton1Click:Connect(function()
+			Box.Text = '';
+			if RiskyMenu then RiskyMenu:Destroy(); RiskyMenu = nil end;
+			RiskyOpen = false;
+		end);
+
+		Outer.Visible = false;
+		_execGui = sg;
+	end;
+
+	function Library:ToggleInternalExec()
+		if not (_execGui and _execGui.Parent) then
+			buildExecGui();
+		end;
+		_execVisible = not _execVisible;
+		local outer = _execGui and _execGui:FindFirstChildWhichIsA('Frame');
+		if outer then outer.Visible = _execVisible end;
+		if _execVisible and _execBox then
+			_execBox:CaptureFocus();
+		end;
+	end;
+
+	-- build on library init so it's ready
+	task.defer(buildExecGui);
+end;
+
 function Library:Notify(Text, Time)
 	local XSize, YSize = Library:GetTextBounds(Text, Library.Font, 14);
 
