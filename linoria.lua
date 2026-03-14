@@ -278,6 +278,10 @@ function Library:MakeResizable(Outer, OnResize)
 	end);
 end;
 
+local DraggingGui = Instance.new('ScreenGui');
+pcall(function() DraggingGui.Parent = gethui() end);
+if not DraggingGui.Parent then DraggingGui.Parent = game:GetService('CoreGui') end;
+
 function Library:MakeDraggableOutline(Instance, Cutoff)
 	Instance.Active = true;
 
@@ -292,15 +296,35 @@ function Library:MakeDraggableOutline(Instance, Cutoff)
 				return;
 			end;
 
-			Instance.AnchorPoint = Vector2.new(0, 0);
+			local frame = Library:Create('Frame', {
+				Parent = DraggingGui;
+				AnchorPoint = Instance.AnchorPoint;
+				BackgroundTransparency = 1;
+				Size = Instance.Size;
+				Position = Instance.Position;
+			});
+			local uistroke = Library:Create('UIStroke', {
+				Parent = frame;
+				Color = Library.AccentColor or Color3.new(0, 0, 0);
+			});
 
 			while InputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) do
-				Instance.Position = UDim2.fromOffset(
-					Mouse.X - ObjPos.X,
-					Mouse.Y - ObjPos.Y
+				frame.Position = UDim2.new(
+					0,
+					Mouse.X - ObjPos.X + (Instance.Size.X.Offset * Instance.AnchorPoint.X),
+					0,
+					Mouse.Y - ObjPos.Y + (Instance.Size.Y.Offset * Instance.AnchorPoint.Y)
 				);
+				uistroke.Color = Library.AccentColor or Color3.new(0, 0, 0);
 				RenderStepped:Wait();
 			end;
+			Instance.Position = UDim2.new(
+				0,
+				Mouse.X - ObjPos.X + (Instance.Size.X.Offset * Instance.AnchorPoint.X),
+				0,
+				Mouse.Y - ObjPos.Y + (Instance.Size.Y.Offset * Instance.AnchorPoint.Y)
+			);
+			frame:Destroy();
 		end;
 	end)
 end;
@@ -1727,19 +1751,36 @@ do
 		return Label;
 	end;
 
-	-- AddColoredLabel: same as AddLabel but with a custom Color3
+	-- AddColoredLabel: same as AddLabel but with a custom Color3 that never gets reset by theme
 	function Funcs:AddColoredLabel(Text, Color, DoesWrap)
-		local Label = self:AddLabel(Text, DoesWrap);
-		if Label and Label.TextLabel then
-			Label.TextLabel.TextColor3 = Color or Color3.new(1, 1, 1);
-			-- remove from registry so color updates don't override it
-			Library.RegistryMap[Label.TextLabel] = nil;
+		local Groupbox = self;
+		local Container = Groupbox.Container;
+
+		local TextLabel = Instance.new('TextLabel');
+		TextLabel.BackgroundTransparency = 1;
+		TextLabel.Font = Library.Font;
+		TextLabel.TextColor3 = Color or Color3.new(1, 1, 1);
+		TextLabel.TextSize = 14;
+		TextLabel.Text = Text;
+		TextLabel.TextWrapped = DoesWrap or false;
+		TextLabel.TextXAlignment = Enum.TextXAlignment.Left;
+		TextLabel.RichText = true;
+		TextLabel.Size = UDim2.new(1, -4, 0, 15);
+		TextLabel.ZIndex = 5;
+		TextLabel.Parent = Container;
+
+		local Label = { TextLabel = TextLabel };
+
+		function Label:SetText(t)
+			TextLabel.Text = t;
+			Groupbox:Resize();
 		end;
-		function Label:SetColor(NewColor)
-			if Label.TextLabel then
-				Label.TextLabel.TextColor3 = NewColor;
-			end;
+		function Label:SetColor(c)
+			TextLabel.TextColor3 = c;
 		end;
+
+		Groupbox:AddBlank(5);
+		Groupbox:Resize();
 		return Label;
 	end;
 
