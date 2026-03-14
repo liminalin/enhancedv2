@@ -293,35 +293,15 @@ function Library:MakeDraggableOutline(Instance, Cutoff)
 				return;
 			end;
 
-			local frame = Library:Create("Frame", {
-				Parent = DraggingGui;
-				AnchorPoint = Instance.AnchorPoint;
-				BackgroundTransparency = 1;
-				Size = Instance.Size;
-				Position = Instance.Position;
-			});
-			local uistroke = Library:Create("UIStroke", {
-				Parent = frame;
-				Color = Library.AccentColor or Color3.new(0, 0, 0);
-			});
+			Instance.AnchorPoint = Vector2.new(0, 0);
 
 			while InputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) do
-				frame.Position = UDim2.new(
-					0,
-					Mouse.X - ObjPos.X + (Instance.Size.X.Offset * Instance.AnchorPoint.X),
-					0,
-					Mouse.Y - ObjPos.Y + (Instance.Size.Y.Offset * Instance.AnchorPoint.Y)
+				Instance.Position = UDim2.fromOffset(
+					Mouse.X - ObjPos.X,
+					Mouse.Y - ObjPos.Y
 				);
-				uistroke.Color = Library.AccentColor or Color3.new(0, 0, 0);
 				RenderStepped:Wait();
 			end;
-			Instance.Position = UDim2.new(
-				0,
-				Mouse.X - ObjPos.X + (Instance.Size.X.Offset * Instance.AnchorPoint.X),
-				0,
-				Mouse.Y - ObjPos.Y + (Instance.Size.Y.Offset * Instance.AnchorPoint.Y)
-			);
-			frame:Destroy();
 		end;
 	end)
 end;
@@ -1748,7 +1728,23 @@ do
 		return Label;
 	end;
 
-	function Funcs:AddButton(...)
+	-- AddColoredLabel: same as AddLabel but with a custom Color3
+	function Funcs:AddColoredLabel(Text, Color, DoesWrap)
+		local Label = self:AddLabel(Text, DoesWrap);
+		if Label and Label.TextLabel then
+			Label.TextLabel.TextColor3 = Color or Color3.new(1, 1, 1);
+			-- remove from registry so color updates don't override it
+			Library.RegistryMap[Label.TextLabel] = nil;
+		end;
+		function Label:SetColor(NewColor)
+			if Label.TextLabel then
+				Label.TextLabel.TextColor3 = NewColor;
+			end;
+		end;
+		return Label;
+	end;
+
+
 		-- TODO: Eventually redo this
 		local Button = {
 		};
@@ -4424,6 +4420,15 @@ function Library:CreateWindow(...)
 		end;
 
 		function Tab:AddRightGroupbox(Name)
+			return self:AddGroupbox({ Side = 2; Name = Name; });
+		end;
+
+		-- LabelGroup: a groupbox intended only for labels (colored or plain)
+		function Tab:AddLeftLabelGroup(Name)
+			return self:AddGroupbox({ Side = 1; Name = Name; });
+		end;
+
+		function Tab:AddRightLabelGroup(Name)
 			return self:AddGroupbox({ Side = 2; Name = Name; });
 		end;
 
