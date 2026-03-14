@@ -280,7 +280,12 @@ end;
 
 local DraggingGui = Instance.new('ScreenGui');
 pcall(function() DraggingGui.Parent = gethui() end);
-if not DraggingGui.Parent then DraggingGui.Parent = game:GetService('CoreGui') end;
+if not DraggingGui.Parent then
+	pcall(function() DraggingGui.Parent = game:GetService('CoreGui') end);
+end;
+if not DraggingGui.Parent then
+	DraggingGui.Parent = game:GetService('Players').LocalPlayer:WaitForChild('PlayerGui');
+end;
 
 function Library:MakeDraggableOutline(Instance, Cutoff)
 	Instance.Active = true;
